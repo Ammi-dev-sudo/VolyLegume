@@ -29,7 +29,7 @@ class ResolveApiFarmContext
                 ->get()
                 ->filter(fn ($membership) => $membership->farm !== null);
 
-            $requestedId = $request->integer('X-Farm-Id');
+            $requestedId = (int) $request->header('X-Farm-Id', 0);
 
             if ($requestedId > 0) {
                 abort_if(

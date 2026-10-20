@@ -72,7 +72,7 @@ Puis :
 php artisan migrate:fresh --seed
 ```
 
-17 migrations créent le schéma complet ; le seeder (`DatabaseSeeder`) peuple deux exploitations fictives avec leurs comptes, parcelles, cultures, campagnes, stocks et opérations (voir plus bas).
+18 migrations créent le schéma complet (dont la table `personal_access_tokens` de Sanctum) ; le seeder (`DatabaseSeeder`) peuple deux exploitations fictives avec leurs comptes, parcelles, cultures, campagnes, stocks et opérations (voir plus bas).
 
 ## Lancement
 
@@ -111,7 +111,8 @@ Routes sous `/api`, authentification par token Sanctum (`POST /api/login`), cont
 
 | Méthode | Route | Description |
 | --- | --- | --- |
-| POST | `/api/login` | Obtention d'un token |
+| POST | `/api/login` | Obtention d'un token (`email` + `password`) |
+| POST | `/api/logout` | Révocation du token courant |
 | GET | `/api/campaigns` | Liste des campagnes (filtres, pagination) |
 | GET | `/api/campaigns/{campaign}` | Détail d'une campagne |
 | POST | `/api/activities` | Saisie d'une activité (201) |
@@ -124,7 +125,7 @@ Chaque réponse inclut `X-Farm-Id` et des en-têtes de pagination (`X-Per-Page`,
 php artisan test           # ou : vendor/bin/phpunit
 ```
 
-La suite (27 tests, ~80 assertions) tourne sur SQLite en mémoire et couvre l'isolation entre exploitations, les rôles, les stocks, le délai avant récolte, les finances, l'API et l'édition des rattachements.
+La suite (55 tests, 143 assertions) tourne sur SQLite en mémoire et couvre l'authentification API, l'isolation entre exploitations, les rôles, les stocks, le délai avant récolte, les finances, l'API et l'édition des rattachements.
 
 ## Journal et audit
 

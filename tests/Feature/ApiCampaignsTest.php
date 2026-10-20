@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\FarmRole;
 use App\Models\Campaign;
+use App\Models\FarmUser;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithFarm;
@@ -52,7 +53,12 @@ class ApiCampaignsTest extends TestCase
         $farmB = $this->createFarm();
 
         $user = $this->memberOf($farmA);
-        $this->memberOf($farmB, FarmRole::Agent);
+        FarmUser::create([
+            'farm_id' => $farmB->id,
+            'user_id' => $user->id,
+            'role' => FarmRole::Agent,
+            'is_active' => true,
+        ]);
 
         $campaignB = Campaign::factory()->create(['farm_id' => $farmB->id]);
 
