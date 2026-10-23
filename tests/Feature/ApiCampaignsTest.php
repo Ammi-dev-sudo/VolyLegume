@@ -47,6 +47,20 @@ class ApiCampaignsTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_le_detail_dune_campagne_de_son_exploitation_est_accessible(): void
+    {
+        $farm = $this->createFarm();
+        $campaign = Campaign::factory()->create(['farm_id' => $farm->id]);
+
+        $token = $this->tokenFor($this->memberOf($farm));
+
+        $this->withToken($token)
+            ->getJson("/api/campaigns/{$campaign->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $campaign->id)
+            ->assertJsonPath('data.farm_id', $farm->id);
+    }
+
     public function test_l_entete_x_farm_id_selectionne_lexploitation_autorisee(): void
     {
         $farmA = $this->createFarm();

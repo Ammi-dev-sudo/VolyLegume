@@ -32,24 +32,24 @@ class InputController extends Controller
 
         return view('inputs.index', [
             'inputs' => $inputs,
-            'categories' => InputCategory::cases(),
+            'categories' => collect(InputCategory::cases()),
         ]);
     }
 
     public function create(): View
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('create', Input::class);
 
         return view('inputs.create', [
             'input' => new Input(['category' => InputCategory::Consumable, 'base_unit' => BaseUnit::Kg, 'minimum_stock' => 0]),
-            'categories' => InputCategory::cases(),
-            'units' => BaseUnit::cases(),
+            'categories' => collect(InputCategory::cases()),
+            'units' => collect(BaseUnit::cases()),
         ]);
     }
 
     public function store(Request $request, StockService $stock): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('create', Input::class);
 
         $validated = $this->validated($request);
 
@@ -78,18 +78,18 @@ class InputController extends Controller
 
     public function edit(Input $input): View
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('update', $input);
 
         return view('inputs.edit', [
             'input' => $input,
-            'categories' => InputCategory::cases(),
-            'units' => BaseUnit::cases(),
+            'categories' => collect(InputCategory::cases()),
+            'units' => collect(BaseUnit::cases()),
         ]);
     }
 
     public function update(Request $request, Input $input): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('update', $input);
 
         $input->update($this->validated($request, $input));
 
@@ -100,7 +100,7 @@ class InputController extends Controller
 
     public function destroy(Input $input): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('delete', $input);
 
         if ($input->stockMovements()->exists()) {
             return back()->withErrors([

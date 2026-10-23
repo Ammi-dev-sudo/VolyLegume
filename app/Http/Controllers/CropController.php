@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\UsesFarmContext;
 use App\Models\Crop;
+use App\Models\CropCategory;
+use App\Services\CropGuideService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -18,50 +21,76 @@ class CropController extends Controller
     {
         $crops = Crop::query()
             ->forFarm($this->farmId())
+            ->with('category')
             ->when($request->filled('search'), fn ($query) => $query->where('name', 'like', '%'.$request->string('search').'%'))
+            ->when($request->filled('category_id'), fn ($query) => $query->where('category_id', $request->integer('category_id')))
             ->orderBy('name')
             ->orderBy('variety')
             ->paginate(15)
             ->withQueryString();
 
-        return view('crops.index', compact('crops'));
+        $categories = $this->categories();
+
+        return view('crops.index', compact('crops', 'categories'));
     }
 
     public function create(): View
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('create', Crop::class);
 
-        return view('crops.create', ['crop' => new Crop(['production_unit' => 'kg', 'is_active' => true])]);
+        return view('crops.create', [
+            'crop' => new Crop(['production_unit' => 'kg', 'is_active' => true]),
+            'categories' => $this->categories(),
+        ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, CropGuideService $guideService): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('create', Crop::class);
 
         $farmId = $this->farmId();
 
         $validated = $this->validateCrop($request, $farmId);
 
-        Crop::create($validated + ['farm_id' => $farmId, 'production_unit' => 'kg']);
+        $crop = Crop::create($validated + ['farm_id' => $farmId, 'production_unit' => 'kg']);
+
+        $guideService->sync($crop);
 
         return redirect()->route('crops.index')
             ->with('status', 'Culture créée.');
     }
 
-    public function edit(Crop $crop): View
+    public function guide(Crop $crop, CropGuideService $guideService): View
     {
-        Gate::authorize('manage-referentials');
+        $guide = $guideService->ensure($crop);
 
-        return view('crops.edit', compact('crop'));
+        $crop->load([
+            'category',
+            'calendarSteps' => fn ($query) => $query->where('is_active', true)->orderBy('position'),
+        ]);
+
+        return view('crops.guide', compact('crop', 'guide'));
     }
 
-    public function update(Request $request, Crop $crop): RedirectResponse
+    public function edit(Crop $crop): View
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('update', $crop);
+
+        return view('crops.edit', [
+            'crop' => $crop,
+            'categories' => $this->categories(),
+        ]);
+    }
+
+    public function update(Request $request, Crop $crop, CropGuideService $guideService): RedirectResponse
+    {
+        Gate::authorize('update', $crop);
 
         $validated = $this->validateCrop($request, $this->farmId(), $crop->id);
 
         $crop->update($validated);
+
+        $guideService->sync($crop->refresh());
 
         return redirect()->route('crops.index')
             ->with('status', 'Culture mise à jour.');
@@ -69,7 +98,7 @@ class CropController extends Controller
 
     public function destroy(Crop $crop): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('delete', $crop);
 
         if ($crop->campaigns()->exists() || $crop->calendarSteps()->exists()) {
             return back()->withErrors([
@@ -89,6 +118,7 @@ class CropController extends Controller
     private function validateCrop(Request $request, int $farmId, ?int $ignoreId = null): array
     {
         $validated = $request->validate([
+            'category_id' => ['required', 'integer', 'exists:crop_categories,id'],
             'name' => ['required', 'string', 'max:100'],
             'variety' => ['nullable', 'string', 'max:100'],
             'estimated_cycle_days' => ['nullable', 'integer', 'min:1'],
@@ -112,5 +142,17 @@ class CropController extends Controller
             'variety' => $variety,
             'is_active' => $request->boolean('is_active'),
         ];
+    }
+
+    /**
+     * @return Collection<int, CropCategory>
+     */
+    private function categories(): Collection
+    {
+        return CropCategory::query()
+            ->active()
+            ->orderBy('position')
+            ->orderBy('name')
+            ->get();
     }
 }

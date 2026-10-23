@@ -46,6 +46,47 @@ class DatabaseSeeder extends Seeder
             'responsable.itasy@volylegume.mg',
             withOperations: false,
         );
+
+        $this->seedTestAccounts();
+        $this->call(VegetableDataSeeder::class);
+        $this->call(CropCatalogSeeder::class);
+        $this->call(CropGuideSeeder::class);
+        $this->call(CommercialDataSeeder::class);
+    }
+
+    /**
+     * Comptes de démonstration pour tester tous les rôles.
+     *
+     * L'administrateur est rattaché à toutes les exploitations ; le technicien
+     * (rôle Agent) est rattaché à la première exploitation.
+     */
+    private function seedTestAccounts(): void
+    {
+        $admin = User::updateOrCreate(
+            ['email' => 'admin@volylegume.mg'],
+            ['name' => 'Rasoa Administratrice', 'password' => Hash::make('password'), 'is_active' => true, 'is_platform_admin' => true],
+        );
+
+        $technician = User::updateOrCreate(
+            ['email' => 'technicien@volylegume.mg'],
+            ['name' => 'Technicien Test', 'password' => Hash::make('password'), 'is_active' => true],
+        );
+
+        $farmIds = Farm::query()->orderBy('id')->pluck('id');
+
+        foreach ($farmIds as $farmId) {
+            FarmUser::updateOrCreate(
+                ['farm_id' => $farmId, 'user_id' => $admin->id],
+                ['role' => FarmRole::Admin, 'is_active' => true],
+            );
+        }
+
+        if ($farmIds->isNotEmpty()) {
+            FarmUser::updateOrCreate(
+                ['farm_id' => $farmIds->first(), 'user_id' => $technician->id],
+                ['role' => FarmRole::Agent, 'is_active' => true],
+            );
+        }
     }
 
     private function seedFarm(string $name, string $location, string $managerEmail, bool $withOperations): void
@@ -66,13 +107,6 @@ class DatabaseSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        $admin = User::factory()->create([
-            'name' => 'Rasoa Administratrice',
-            'email' => 'admin@volylegume.mg',
-            'password' => Hash::make('password'),
-            'is_active' => true,
-        ]);
-
         $farm = Farm::create([
             'name' => $name,
             'location' => $location,
@@ -85,7 +119,6 @@ class DatabaseSeeder extends Seeder
 
         FarmUser::create(['farm_id' => $farm->id, 'user_id' => $responsable->id, 'role' => FarmRole::Responsable, 'is_active' => true]);
         FarmUser::create(['farm_id' => $farm->id, 'user_id' => $agent->id, 'role' => FarmRole::Agent, 'is_active' => true]);
-        FarmUser::create(['farm_id' => $farm->id, 'user_id' => $admin->id, 'role' => FarmRole::Admin, 'is_active' => true]);
 
         $parcels = collect([
             ['code' => 'P01', 'name' => 'Parcelle basse', 'area_m2' => 1200, 'location' => 'Rangées 1-8'],

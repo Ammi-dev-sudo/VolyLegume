@@ -33,14 +33,14 @@ class ExpenseController extends Controller
         return view('expenses.index', [
             'expenses' => $expenses,
             'campaigns' => $this->campaigns(),
-            'categories' => ExpenseCategory::cases(),
+            'categories' => collect(ExpenseCategory::cases()),
             'total' => (float) $expenses->sum('amount'),
         ]);
     }
 
     public function create(Request $request): View
     {
-        Gate::authorize('manage-finances');
+        Gate::authorize('create', Expense::class);
 
         return view('expenses.create', $this->formData() + [
             'expense' => new Expense([
@@ -53,7 +53,7 @@ class ExpenseController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Gate::authorize('manage-finances');
+        Gate::authorize('create', Expense::class);
 
         Expense::create($this->validated($request) + [
             'farm_id' => $this->farmId(),
@@ -67,14 +67,14 @@ class ExpenseController extends Controller
 
     public function edit(Expense $expense): View
     {
-        Gate::authorize('manage-finances');
+        Gate::authorize('update', $expense);
 
         return view('expenses.edit', $this->formData() + ['expense' => $expense]);
     }
 
     public function update(Request $request, Expense $expense): RedirectResponse
     {
-        Gate::authorize('manage-finances');
+        Gate::authorize('update', $expense);
 
         $expense->update($this->validated($request));
 
@@ -85,7 +85,7 @@ class ExpenseController extends Controller
 
     public function destroy(Expense $expense): RedirectResponse
     {
-        Gate::authorize('manage-finances');
+        Gate::authorize('delete', $expense);
 
         $expense->delete();
 
@@ -101,7 +101,7 @@ class ExpenseController extends Controller
     {
         return [
             'campaigns' => $this->campaigns(),
-            'categories' => ExpenseCategory::cases(),
+            'categories' => collect(ExpenseCategory::cases()),
         ];
     }
 

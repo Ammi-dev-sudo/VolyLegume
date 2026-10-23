@@ -16,7 +16,7 @@ class NotificationController extends Controller
         $farmId = $this->context()->id();
 
         $notifications = $request->user()->notifications()
-            ->when($farmId !== null, fn ($query) => $query->where('data->farm_id', $farmId))
+            ->when($farmId !== null, fn ($query) => $query->where('farm_id', $farmId))
             ->latest()
             ->paginate(15);
 
@@ -25,7 +25,13 @@ class NotificationController extends Controller
 
     public function markAsRead(Request $request, string $id): RedirectResponse
     {
-        $notification = $request->user()->notifications()->whereKey($id)->firstOrFail();
+        $farmId = $this->context()->id();
+
+        $notification = $request->user()->notifications()
+            ->when($farmId !== null, fn ($query) => $query->where('farm_id', $farmId))
+            ->whereKey($id)
+            ->firstOrFail();
+
         $notification->markAsRead();
 
         return redirect()->route('notifications.index');
@@ -33,7 +39,11 @@ class NotificationController extends Controller
 
     public function markAllAsRead(Request $request): RedirectResponse
     {
-        $request->user()->unreadNotifications->markAsRead();
+        $farmId = $this->context()->id();
+
+        $request->user()->unreadNotifications()
+            ->when($farmId !== null, fn ($query) => $query->where('farm_id', $farmId))
+            ->update(['read_at' => now()]);
 
         return redirect()->route('notifications.index')->with('status', 'Toutes les alertes ont été marquées comme lues.');
     }

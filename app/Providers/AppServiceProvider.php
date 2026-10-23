@@ -3,12 +3,14 @@
 namespace App\Providers;
 
 use App\Enums\FarmRole;
-use App\Models\Farm;
 use App\Models\User;
+use App\Notifications\Channels\FarmDatabaseChannel;
 use App\Support\FarmContext;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\ChannelManager;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -28,6 +30,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Notification::resolved(fn (ChannelManager $service) => $service->extend(
+            'farm',
+            fn () => new FarmDatabaseChannel,
+        ));
+
+        /*
+         * Les policies portent l'autorisation des ressources (production,
+         * campagnes, finances, équipe…). Les deux Gates restants servent aux
+         * capacités transversales affichées dans les vues Blade.
+         */
         Gate::define('manage-finances', function (User $user): bool {
             return app(FarmContext::class)->hasRole(FarmRole::Admin, FarmRole::Responsable);
         });
@@ -36,8 +48,8 @@ class AppServiceProvider extends ServiceProvider
             return app(FarmContext::class)->hasRole(FarmRole::Admin, FarmRole::Responsable);
         });
 
-        Gate::define('manage-team', function (User $user, Farm $farm): bool {
-            return in_array($farm->roleOf($user), [FarmRole::Admin, FarmRole::Responsable], true);
+        Gate::before(function (User $user): ?bool {
+            return $user->isPlatformAdmin() ? true : null;
         });
 
         RateLimiter::for('api', function (Request $request) {
@@ -47,7 +59,12 @@ class AppServiceProvider extends ServiceProvider
         });
 
         View::composer('*', function ($view): void {
-            $view->with('currentFarm', app(FarmContext::class)->farm());
+            $context = app(FarmContext::class);
+
+            $view->with([
+                'currentFarm' => $context->farm(),
+                'currentRole' => $context->role(),
+            ]);
         });
     }
 }

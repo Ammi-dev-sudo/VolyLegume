@@ -27,7 +27,7 @@ class ProductionUnitController extends Controller
 
     public function create(): View
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('create', ProductionUnit::class);
 
         return view('production-units.create', [
             'productionUnit' => new ProductionUnit(['status' => ProductionUnitStatus::Available]),
@@ -36,7 +36,7 @@ class ProductionUnitController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('create', ProductionUnit::class);
 
         $farmId = $this->farmId();
 
@@ -59,14 +59,14 @@ class ProductionUnitController extends Controller
 
     public function edit(ProductionUnit $productionUnit): View
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('update', $productionUnit);
 
         return view('production-units.edit', compact('productionUnit'));
     }
 
     public function update(Request $request, ProductionUnit $productionUnit): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('update', $productionUnit);
 
         $validated = $request->validate([
             'code' => ['required', 'string', 'max:30', Rule::unique('production_units', 'code')
@@ -86,7 +86,7 @@ class ProductionUnitController extends Controller
 
     public function destroy(ProductionUnit $productionUnit): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('delete', $productionUnit);
 
         if ($productionUnit->campaigns()->exists()) {
             return back()->withErrors([

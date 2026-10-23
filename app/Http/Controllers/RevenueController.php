@@ -35,14 +35,14 @@ class RevenueController extends Controller
         return view('revenues.index', [
             'revenues' => $revenues,
             'campaigns' => $this->campaigns(),
-            'categories' => RevenueCategory::cases(),
+            'categories' => collect(RevenueCategory::cases()),
             'total' => (float) $revenues->sum('amount'),
         ]);
     }
 
     public function create(Request $request): View
     {
-        Gate::authorize('manage-finances');
+        Gate::authorize('create', Revenue::class);
 
         return view('revenues.create', $this->formData() + [
             'revenue' => new Revenue([
@@ -56,7 +56,7 @@ class RevenueController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Gate::authorize('manage-finances');
+        Gate::authorize('create', Revenue::class);
 
         Revenue::create($this->validated($request) + [
             'farm_id' => $this->farmId(),
@@ -70,14 +70,14 @@ class RevenueController extends Controller
 
     public function edit(Revenue $revenue): View
     {
-        Gate::authorize('manage-finances');
+        Gate::authorize('update', $revenue);
 
         return view('revenues.edit', $this->formData() + ['revenue' => $revenue]);
     }
 
     public function update(Request $request, Revenue $revenue): RedirectResponse
     {
-        Gate::authorize('manage-finances');
+        Gate::authorize('update', $revenue);
 
         $revenue->update($this->validated($request));
 
@@ -88,7 +88,7 @@ class RevenueController extends Controller
 
     public function destroy(Revenue $revenue): RedirectResponse
     {
-        Gate::authorize('manage-finances');
+        Gate::authorize('delete', $revenue);
 
         $revenue->delete();
 
@@ -105,7 +105,7 @@ class RevenueController extends Controller
         return [
             'campaigns' => $this->campaigns(),
             'harvests' => Harvest::query()->forFarm($this->farmId())->with('campaign.crop')->orderByDesc('harvested_at')->get(),
-            'categories' => RevenueCategory::cases(),
+            'categories' => collect(RevenueCategory::cases()),
         ];
     }
 

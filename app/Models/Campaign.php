@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CampaignStatus;
 use App\Enums\ReferenceType;
+use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToFarm;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Campaign extends Model
 {
-    use BelongsToFarm, HasFactory;
+    use Auditable, BelongsToFarm, HasFactory;
 
     protected $fillable = [
         'farm_id',
@@ -25,6 +26,10 @@ class Campaign extends Model
         'expected_end_date',
         'actual_end_date',
         'cultivated_area_m2',
+        'planting_density',
+        'expected_yield_kg',
+        'actual_yield_kg',
+        'planned_budget',
         'status',
         'notes',
     ];
@@ -36,6 +41,10 @@ class Campaign extends Model
             'expected_end_date' => 'date',
             'actual_end_date' => 'date',
             'cultivated_area_m2' => 'decimal:2',
+            'planting_density' => 'decimal:2',
+            'expected_yield_kg' => 'decimal:3',
+            'actual_yield_kg' => 'decimal:3',
+            'planned_budget' => 'decimal:2',
             'status' => CampaignStatus::class,
             'reference_type' => ReferenceType::class,
         ];
@@ -74,6 +83,11 @@ class Campaign extends Model
     public function harvests(): HasMany
     {
         return $this->hasMany(Harvest::class);
+    }
+
+    public function produceLots(): HasMany
+    {
+        return $this->hasMany(ProduceLot::class);
     }
 
     public function expenses(): HasMany

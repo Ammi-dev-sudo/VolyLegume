@@ -33,10 +33,18 @@
                 </div>
 
                 <div class="grid gap-4 sm:grid-cols-2">
+                    <x-field name="harvest_code" label="Code de récolte" value="{{ old('harvest_code') }}" placeholder="Généré avec le lot si vide" />
+                    <x-field name="harvested_area_m2" label="Surface récoltée (m²)" type="number" step="0.01" min="0.01" value="{{ old('harvested_area_m2') }}" />
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <x-field name="loss_quantity" label="Pertes (même unité)" type="number" step="0.001" min="0" value="{{ old('loss_quantity', 0) }}" />
                     <x-select-field name="quality" label="Qualité" placeholder="— Non notée —"
                                     :value="old('quality')"
                                     :options=['standard' => 'Standard', 'bien' => 'Bonne', 'moyen' => 'Moyenne', 'refuse' => 'Refusée / non conforme'] />
-                    <div></div>
+                    <x-select-field name="grade" label="Calibre / grade" placeholder="— Non précisé —"
+                                    :value="old('grade')"
+                                    :options=['extra' => 'Extra', 'I' => 'Calibre I', 'II' => 'Calibre II', 'III' => 'Calibre III', 'hors_calibre' => 'Hors calibre'] />
                 </div>
 
                 <x-textarea-field name="notes" label="Observations" rows="3" value="{{ old('notes') }}" />

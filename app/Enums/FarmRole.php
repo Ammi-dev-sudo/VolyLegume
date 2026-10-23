@@ -26,4 +26,9 @@ enum FarmRole: string
     {
         return $this !== self::Agent;
     }
+
+    public function canManageTeam(): bool
+    {
+        return $this !== self::Agent;
+    }
 }

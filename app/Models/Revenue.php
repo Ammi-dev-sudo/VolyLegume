@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\RevenueCategory;
+use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToFarm;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,12 +11,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Revenue extends Model
 {
-    use BelongsToFarm, HasFactory;
+    use Auditable, BelongsToFarm, HasFactory;
 
     protected $fillable = [
         'farm_id',
         'campaign_id',
         'harvest_id',
+        'sale_id',
         'category',
         'description',
         'amount',
@@ -46,6 +48,11 @@ class Revenue extends Model
     public function harvest(): BelongsTo
     {
         return $this->belongsTo(Harvest::class);
+    }
+
+    public function sale(): BelongsTo
+    {
+        return $this->belongsTo(Sale::class);
     }
 
     public function recordedBy(): BelongsTo

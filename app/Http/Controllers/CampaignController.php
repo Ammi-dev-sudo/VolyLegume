@@ -35,13 +35,13 @@ class CampaignController extends Controller
 
         return view('campaigns.index', [
             'campaigns' => $campaigns,
-            'statuses' => CampaignStatus::cases(),
+            'statuses' => collect(CampaignStatus::cases()),
         ]);
     }
 
     public function create(): View
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('create', Campaign::class);
 
         return view('campaigns.create', $this->formData() + [
             'campaign' => new Campaign([
@@ -53,7 +53,7 @@ class CampaignController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('create', Campaign::class);
 
         Campaign::create($this->validated($request) + ['farm_id' => $this->farmId()]);
 
@@ -77,14 +77,14 @@ class CampaignController extends Controller
 
     public function edit(Campaign $campaign): View
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('update', $campaign);
 
         return view('campaigns.edit', $this->formData() + ['campaign' => $campaign]);
     }
 
     public function update(Request $request, Campaign $campaign): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('update', $campaign);
 
         $campaign->update($this->validated($request, $campaign));
 
@@ -95,7 +95,7 @@ class CampaignController extends Controller
 
     public function destroy(Campaign $campaign): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('delete', $campaign);
 
         if ($campaign->harvests()->exists() || $campaign->treatments()->exists() || $campaign->expenses()->exists() || $campaign->revenues()->exists()) {
             return back()->withErrors([
@@ -117,8 +117,8 @@ class CampaignController extends Controller
         return [
             'productionUnits' => ProductionUnit::query()->forFarm($this->farmId())->orderBy('code')->get(),
             'crops' => Crop::query()->forFarm($this->farmId())->where('is_active', true)->orderBy('name')->get(),
-            'referenceTypes' => ReferenceType::cases(),
-            'statuses' => CampaignStatus::cases(),
+            'referenceTypes' => collect(ReferenceType::cases()),
+            'statuses' => collect(CampaignStatus::cases()),
         ];
     }
 

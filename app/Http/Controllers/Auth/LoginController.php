@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,7 +19,7 @@ class LoginController extends Controller
         return view('auth.login');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, AuditLogger $audit): RedirectResponse
     {
         $credentials = $request->validate([
             'email' => ['required', 'string', 'email'],
@@ -39,6 +40,7 @@ class LoginController extends Controller
 
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             RateLimiter::hit($throttleKey, 60);
+            $audit->record('auth.login_failed', 'Échec de connexion web.', null, ['email' => $credentials['email']]);
 
             throw ValidationException::withMessages([
                 'email' => __('Ces identifiants ne correspondent à aucun compte.'),
@@ -56,6 +58,8 @@ class LoginController extends Controller
 
         RateLimiter::clear($throttleKey);
         $request->session()->regenerate();
+
+        $audit->record('auth.login', 'Connexion web réussie.', $request->user());
 
         return redirect()->intended(route('dashboard'));
     }

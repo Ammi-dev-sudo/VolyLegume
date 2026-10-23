@@ -75,11 +75,11 @@ class FarmController extends Controller
 
     public function edit(Farm $farm): View
     {
-        Gate::authorize('manage-team', $farm);
+        Gate::authorize('update', $farm);
 
         return view('farms.edit', [
             'farm' => $farm,
-            'statuses' => FarmStatus::cases(),
+            'statuses' => collect(FarmStatus::cases()),
             'managers' => $farm->memberships()
                 ->where('is_active', true)
                 ->where('role', FarmRole::Responsable->value)
@@ -91,7 +91,7 @@ class FarmController extends Controller
 
     public function update(Request $request, Farm $farm): RedirectResponse
     {
-        Gate::authorize('manage-team', $farm);
+        Gate::authorize('update', $farm);
 
         $activating = $request->string('status')->toString() === FarmStatus::Active->value;
 

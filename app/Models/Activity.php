@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ActivityStatus;
 use App\Enums\ActivityType;
+use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToFarm;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Activity extends Model
 {
-    use BelongsToFarm, HasFactory;
+    use Auditable, BelongsToFarm, HasFactory;
 
     protected $fillable = [
         'farm_id',
@@ -24,11 +25,15 @@ class Activity extends Model
         'description',
         'planned_date',
         'performed_at',
+        'duration_hours',
+        'workers_count',
+        'weather_conditions',
         'status',
         'assigned_to',
         'created_by',
         'performed_by',
         'estimated_cost',
+        'actual_cost',
     ];
 
     protected function casts(): array
@@ -38,7 +43,10 @@ class Activity extends Model
             'status' => ActivityStatus::class,
             'planned_date' => 'date',
             'performed_at' => 'datetime',
+            'duration_hours' => 'decimal:2',
+            'workers_count' => 'integer',
             'estimated_cost' => 'decimal:2',
+            'actual_cost' => 'decimal:2',
         ];
     }
 

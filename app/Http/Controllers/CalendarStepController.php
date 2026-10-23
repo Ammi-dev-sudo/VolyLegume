@@ -35,7 +35,7 @@ class CalendarStepController extends Controller
 
     public function create(Request $request): View
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('create', CalendarStep::class);
 
         return view('calendar-steps.create', [
             'step' => new CalendarStep([
@@ -50,7 +50,7 @@ class CalendarStepController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('create', CalendarStep::class);
 
         CalendarStep::create($this->validated($request) + ['farm_id' => $this->farmId()]);
 
@@ -59,7 +59,7 @@ class CalendarStepController extends Controller
 
     public function edit(CalendarStep $calendarStep): View
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('update', $calendarStep);
 
         return view('calendar-steps.edit', [
             'step' => $calendarStep,
@@ -69,7 +69,7 @@ class CalendarStepController extends Controller
 
     public function update(Request $request, CalendarStep $calendarStep): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('update', $calendarStep);
 
         $calendarStep->update($this->validated($request, $calendarStep));
 
@@ -78,7 +78,7 @@ class CalendarStepController extends Controller
 
     public function destroy(CalendarStep $calendarStep): RedirectResponse
     {
-        Gate::authorize('manage-referentials');
+        Gate::authorize('delete', $calendarStep);
 
         if ($calendarStep->activities()->exists()) {
             $calendarStep->update(['is_active' => false]);

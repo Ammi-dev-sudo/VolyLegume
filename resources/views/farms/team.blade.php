@@ -6,7 +6,10 @@
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h1 class="text-xl font-semibold text-slate-800">Équipe — {{ $farm->name }}</h1>
-            <p class="text-sm text-slate-500">Rattachements et rôles (association APPARTENIR du MCD).</p>
+            <p class="text-sm text-slate-500">
+                Rattachements et rôles.
+                <a href="{{ route('resources.index') }}#roles" class="font-semibold text-emerald-700 hover:underline">Voir le détail des permissions</a>
+            </p>
         </div>
         <a href="{{ route('farms.edit', $farm) }}"
            class="rounded border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">

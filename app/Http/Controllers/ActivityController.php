@@ -12,6 +12,7 @@ use App\Models\ProductionUnit;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class ActivityController extends Controller
@@ -51,8 +52,8 @@ class ActivityController extends Controller
             'activities' => $activities,
             'campaigns' => Campaign::query()->forFarm($farmId)->orderByDesc('start_date')->get(),
             'productionUnits' => $this->productionUnits($farmId),
-            'types' => ActivityType::cases(),
-            'statuses' => ActivityStatus::cases(),
+            'types' => collect(ActivityType::cases()),
+            'statuses' => collect(ActivityStatus::cases()),
             'members' => $this->members($farmId),
         ]);
     }
@@ -72,6 +73,8 @@ class ActivityController extends Controller
 
     public function store(StoreActivityRequest $request): RedirectResponse
     {
+        Gate::authorize('create', Activity::class);
+
         $activity = Activity::create($request->toActivityAttributes() + [
             'farm_id' => $this->farmId(),
             'created_by' => $request->user()->id,
@@ -94,6 +97,8 @@ class ActivityController extends Controller
 
     public function update(StoreActivityRequest $request, Activity $activity): RedirectResponse
     {
+        Gate::authorize('update', $activity);
+
         $activity->update($request->toActivityAttributes());
 
         return redirect()->route('activities.show', $activity)->with('status', 'Activité mise à jour.');
@@ -101,6 +106,8 @@ class ActivityController extends Controller
 
     public function destroy(Activity $activity): RedirectResponse
     {
+        Gate::authorize('delete', $activity);
+
         if ($activity->performed_at !== null || $activity->status === ActivityStatus::Completed) {
             return back()->withErrors([
                 'activity' => 'Une activité réalisée ne peut pas être supprimée ; annulez-la avec un motif.',
@@ -114,6 +121,8 @@ class ActivityController extends Controller
 
     public function complete(Request $request, Activity $activity): RedirectResponse
     {
+        Gate::authorize('update', $activity);
+
         if ($activity->status === ActivityStatus::Completed) {
             return back()->with('status', 'Cette activité est déjà réalisée.');
         }
@@ -140,8 +149,8 @@ class ActivityController extends Controller
     {
         return [
             'campaigns' => Campaign::query()->forFarm($this->farmId())->orderByDesc('start_date')->get(),
-            'types' => ActivityType::cases(),
-            'statuses' => ActivityStatus::cases(),
+            'types' => collect(ActivityType::cases()),
+            'statuses' => collect(ActivityStatus::cases()),
             'members' => $this->members($this->farmId()),
         ];
     }

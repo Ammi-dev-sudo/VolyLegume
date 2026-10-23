@@ -10,8 +10,10 @@ use App\Models\Expense;
 use App\Models\Farm;
 use App\Models\Harvest;
 use App\Models\Input;
+use App\Models\ProduceLot;
 use App\Models\ProductionUnit;
 use App\Models\Revenue;
+use App\Models\Sale;
 use App\Support\DashboardCache;
 use Illuminate\Support\Facades\Cache;
 
@@ -21,6 +23,10 @@ use Illuminate\Support\Facades\Cache;
  * Indicateurs calculés : marge simplifiée, rendement, taux de réalisation,
  * retards, stock critique. Aucune information n'est lue hors de l'exploitation
  * transmise en paramètre.
+ *
+ * Le cache ne contient que des valeurs scalaires : les objets Eloquent ne sont
+ * pas sérialisés, ce qui évite de dépendre de la liste blanche de classes
+ * désérialisables du cache (`cache.serializable_classes`).
  */
 class DashboardService
 {
@@ -88,6 +94,17 @@ class DashboardService
             ->whereIn('id', (clone $harvestsQuery)->select('campaign_id'))
             ->sum('cultivated_area_m2');
 
+        $salesQuery = Sale::query()->forFarm($farm->id)
+            ->confirmed()
+            ->whereBetween('sale_date', [$from, $to])
+            ->when($campaignId, fn ($query) => $query->whereHas(
+                'items.produceLot',
+                fn ($query) => $query->where('campaign_id', $campaignId),
+            ));
+
+        $salesAmount = (float) (clone $salesQuery)->sum('total_amount');
+        $salesPaid = (float) (clone $salesQuery)->sum('amount_paid');
+
         return [
             'period' => ['from' => $from, 'to' => $to],
             'expenses' => $expenses,
@@ -99,7 +116,13 @@ class DashboardService
             'critical_inputs' => Input::query()->forFarm($farm->id)
                 ->whereColumn('quantity', '<', 'minimum_stock')
                 ->orderBy('name')
-                ->get(),
+                ->get(['name', 'quantity', 'minimum_stock'])
+                ->map(fn (Input $input): array => [
+                    'name' => $input->name,
+                    'quantity' => (float) $input->quantity,
+                    'minimum_stock' => (float) $input->minimum_stock,
+                ])
+                ->all(),
             'late_activities' => $lateActivities,
             'completion_rate' => $totalActivities > 0
                 ? round($completedActivities / $totalActivities * 100, 1)
@@ -108,13 +131,31 @@ class DashboardService
             'yield_kg_per_ha' => $harvestedAreaM2 > 0
                 ? round($harvestedQuantity / ($harvestedAreaM2 / 10000), 1)
                 : null,
+            'produce_available' => (float) ProduceLot::query()->forFarm($farm->id)
+                ->sum('available_quantity'),
+            'produce_lots_available' => ProduceLot::query()->forFarm($farm->id)
+                ->available()
+                ->count(),
+            'sales_amount' => $salesAmount,
+            'sales_count' => (clone $salesQuery)->count(),
+            'sales_outstanding' => round($salesAmount - $salesPaid, 2),
             'recent_activities' => Activity::query()->forFarm($farm->id)
-                ->with('campaign')
+                ->with('campaign:id,name')
                 ->when($campaignId, fn ($query) => $query->where('campaign_id', $campaignId))
                 ->orderByDesc('planned_date')
                 ->orderByDesc('id')
                 ->limit(5)
-                ->get(),
+                ->get()
+                ->map(fn (Activity $activity): array => [
+                    'id' => $activity->id,
+                    'title' => $activity->title,
+                    'campaign_name' => $activity->campaign?->name,
+                    'planned_date' => $activity->planned_date->format('d/m/Y'),
+                    'status_value' => $activity->status->value,
+                    'status_label' => $activity->status->label(),
+                    'is_late' => $activity->isLate(),
+                ])
+                ->all(),
         ];
     }
 }

@@ -34,6 +34,25 @@
         </div>
     </div>
 
+    @if ($harvest->produceLot)
+        <x-card class="mb-6" title="Lot de stock récolté">
+            <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
+                <div>
+                    <p class="font-mono text-xs text-slate-500">{{ $harvest->produceLot->code }}</p>
+                    <p class="font-medium text-slate-800">
+                        {{ number_format((float) $harvest->produceLot->available_quantity, 2, ',', ' ') }} {{ $harvest->produceLot->unit }}
+                        disponibles sur {{ number_format((float) $harvest->produceLot->initial_quantity, 2, ',', ' ') }} {{ $harvest->produceLot->unit }}
+                    </p>
+                    <p class="text-xs text-slate-500">{{ $harvest->produceLot->status->label() }}</p>
+                </div>
+                <a href="{{ route('produce-lots.show', $harvest->produceLot) }}"
+                   class="rounded border border-emerald-700 px-3 py-1.5 text-sm text-emerald-700 hover:bg-emerald-50">
+                    Voir la traçabilité et vendre
+                </a>
+            </div>
+        </x-card>
+    @endif
+
     <div class="grid gap-6 lg:grid-cols-2">
         <x-card title="Récolte">
             <dl class="space-y-3 text-sm">
@@ -45,6 +64,15 @@
                 </div>
                 <div class="flex justify-between gap-4"><dt class="text-slate-500">Qualité</dt>
                     <dd>{{ $harvest->quality ?? '—' }}</dd>
+                </div>
+                <div class="flex justify-between gap-4"><dt class="text-slate-500">Calibre / grade</dt>
+                    <dd>{{ $harvest->grade ?? '—' }}</dd>
+                </div>
+                <div class="flex justify-between gap-4"><dt class="text-slate-500">Surface récoltée</dt>
+                    <dd>{{ $harvest->harvested_area_m2 !== null ? number_format((float) $harvest->harvested_area_m2, 2, ',', ' ').' m²' : '—' }}</dd>
+                </div>
+                <div class="flex justify-between gap-4"><dt class="text-slate-500">Pertes déclarées</dt>
+                    <dd>{{ number_format((float) $harvest->loss_quantity, 2, ',', ' ') }} {{ $harvest->unit }}</dd>
                 </div>
                 <div class="flex justify-between gap-4"><dt class="text-slate-500">Enregistrée par</dt>
                     <dd>{{ $harvest->recordedBy?->name ?? '—' }}</dd>

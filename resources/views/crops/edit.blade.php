@@ -4,12 +4,21 @@
 
 @section('content')
     <div class="mx-auto max-w-xl">
-        <h1 class="mb-4 text-xl font-semibold text-slate-800">Modifier « {{ $crop->name }} »</h1>
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h1 class="text-xl font-semibold text-slate-800">Modifier « {{ $crop->name }} »</h1>
+            <a href="{{ route('crops.guide', $crop) }}" class="text-sm text-emerald-700 hover:underline">
+                Voir la fiche de culture
+            </a>
+        </div>
 
         <x-card>
             <form method="POST" action="{{ route('crops.update', $crop) }}" class="space-y-4">
                 @csrf
                 @method('PUT')
+                <x-select-field name="category_id" label="Catégorie" required
+                                :options="$categories->pluck('name', 'id')"
+                                placeholder="— Choisir une catégorie —"
+                                :value="$crop->category_id" />
                 <x-field name="name" label="Nom de la culture" required value="{{ old('name', $crop->name) }}" />
                 <x-field name="variety" label="Variété" value="{{ old('variety', $crop->variety) }}" />
                 <x-field name="estimated_cycle_days" label="Cycle estimé (jours)" type="number" min="1"

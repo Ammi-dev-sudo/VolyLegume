@@ -10,6 +10,7 @@ use App\Services\HarvestService;
 use App\Services\TreatmentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -51,6 +52,8 @@ class HarvestController extends Controller
 
     public function store(Request $request, HarvestService $service): RedirectResponse
     {
+        Gate::authorize('create', Harvest::class);
+
         $farmId = $this->farmId();
 
         $validated = $request->validate([
@@ -59,6 +62,10 @@ class HarvestController extends Controller
             'unit' => ['nullable', 'string', 'max:20'],
             'harvested_at' => ['required', 'date', 'before_or_equal:now'],
             'quality' => ['nullable', 'string', 'max:50'],
+            'grade' => ['nullable', 'string', 'max:40'],
+            'harvest_code' => ['nullable', 'string', 'max:60'],
+            'harvested_area_m2' => ['nullable', 'numeric', 'gt:0'],
+            'loss_quantity' => ['nullable', 'numeric', 'min:0', 'lte:quantity'],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -75,22 +82,41 @@ class HarvestController extends Controller
 
     public function show(Harvest $harvest): View
     {
-        $harvest->load(['campaign.crop', 'recordedBy', 'revenues']);
+        $harvest->load(['campaign.crop', 'recordedBy', 'revenues', 'produceLot']);
 
         return view('harvests.show', compact('harvest'));
     }
 
     public function destroy(Harvest $harvest): RedirectResponse
     {
+        Gate::authorize('delete', $harvest);
+
         if ($harvest->revenues()->exists()) {
             return back()->withErrors([
                 'harvest' => 'Cette récolte est liée à des recettes ; supprimez d’abord ces recettes.',
             ]);
         }
 
+        $harvest->load('produceLot');
+        $lot = $harvest->produceLot;
+
+        if ($lot !== null) {
+            $hasCommercialHistory = $lot->saleItems()->exists()
+                || $lot->movements()->where('type', '<>', 'harvest')->exists();
+
+            if ($hasCommercialHistory) {
+                return back()->withErrors([
+                    'harvest' => 'Le lot de stock possède des mouvements ou des ventes : il ne peut pas être supprimé.',
+                ]);
+            }
+
+            $lot->movements()->delete();
+            $lot->delete();
+        }
+
         $campaign = $harvest->campaign;
         $harvest->delete();
 
-        return redirect()->route('campaigns.show', $campaign)->with('status', 'Récolte supprimée.');
+        return redirect()->route('campaigns.show', $campaign)->with('status', 'Récolte et lot de stock supprimés.');
     }
 }

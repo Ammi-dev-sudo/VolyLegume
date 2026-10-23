@@ -8,6 +8,7 @@ use App\Http\Requests\StoreActivityRequest;
 use App\Http\Resources\ActivityResource;
 use App\Models\Activity;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 
 class ActivityController extends Controller
 {
@@ -15,6 +16,8 @@ class ActivityController extends Controller
 
     public function store(StoreActivityRequest $request): JsonResponse
     {
+        Gate::authorize('create', Activity::class);
+
         $activity = Activity::create($request->toActivityAttributes() + [
             'farm_id' => $this->farmId(),
             'created_by' => $request->user()->id,

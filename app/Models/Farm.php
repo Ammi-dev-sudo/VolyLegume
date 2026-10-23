@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\FarmRole;
 use App\Enums\FarmStatus;
+use App\Models\Concerns\Auditable;
 use Database\Factories\FarmFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,14 +16,22 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Farm extends Model
 {
     /** @use HasFactory<FarmFactory> */
-    use HasFactory;
+    use Auditable, HasFactory;
 
     protected $fillable = [
         'name',
+        'registration_number',
         'location',
+        'address',
+        'latitude',
+        'longitude',
         'type',
         'area_m2',
         'manager_id',
+        'contact_name',
+        'contact_phone',
+        'contact_email',
+        'description',
         'status',
         'currency',
     ];
@@ -31,6 +40,8 @@ class Farm extends Model
     {
         return [
             'area_m2' => 'decimal:2',
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
             'status' => FarmStatus::class,
         ];
     }
@@ -105,6 +116,26 @@ class Farm extends Model
     public function revenues(): HasMany
     {
         return $this->hasMany(Revenue::class);
+    }
+
+    public function customers(): HasMany
+    {
+        return $this->hasMany(Customer::class);
+    }
+
+    public function produceLots(): HasMany
+    {
+        return $this->hasMany(ProduceLot::class);
+    }
+
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 
     public function isActive(): bool

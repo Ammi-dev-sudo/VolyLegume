@@ -36,7 +36,7 @@ class TeamController extends Controller
                 ->orderByDesc('is_active')
                 ->orderBy('id')
                 ->get(),
-            'roles' => FarmRole::cases(),
+            'roles' => collect(FarmRole::cases()),
         ]);
     }
 

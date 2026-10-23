@@ -9,6 +9,10 @@
         <x-card>
             <form method="POST" action="{{ route('crops.store') }}" class="space-y-4">
                 @csrf
+                <x-select-field name="category_id" label="Catégorie" required
+                                :options="$categories->pluck('name', 'id')"
+                                placeholder="— Choisir une catégorie —"
+                                :value="$crop->category_id" />
                 <x-field name="name" label="Nom de la culture" required value="{{ old('name', $crop->name) }}"
                          placeholder="Tomate, mangetout…" />
                 <x-field name="variety" label="Variété" value="{{ old('variety', $crop->variety) }}"

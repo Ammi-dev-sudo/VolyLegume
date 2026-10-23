@@ -39,7 +39,7 @@ class StockMovementController extends Controller
             'movements' => $movements,
             'inputs' => Input::query()->forFarm($this->farmId())->orderBy('name')->get(),
             'campaigns' => Campaign::query()->forFarm($this->farmId())->orderByDesc('start_date')->get(),
-            'types' => StockMovementType::cases(),
+            'types' => collect(StockMovementType::cases()),
         ]);
     }
 
@@ -48,7 +48,7 @@ class StockMovementController extends Controller
         return view('stock-movements.create', [
             'inputs' => Input::query()->forFarm($this->farmId())->orderBy('name')->get(),
             'campaigns' => Campaign::query()->forFarm($this->farmId())->orderByDesc('start_date')->get(),
-            'types' => StockMovementType::cases(),
+            'types' => collect(StockMovementType::cases()),
             'selectedInput' => $request->integer('input_id') ?: null,
             'selectedType' => $request->string('type')->toString() ?: StockMovementType::Entry->value,
         ]);
@@ -68,7 +68,7 @@ class StockMovementController extends Controller
         ]);
 
         if ($validated['type'] === StockMovementType::Adjustment->value) {
-            Gate::authorize('manage-referentials');
+            Gate::authorize('adjust', Input::class);
         }
 
         $input = Input::query()->forFarm($farmId)->findOrFail($validated['input_id']);

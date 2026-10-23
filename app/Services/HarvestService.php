@@ -16,10 +16,13 @@ use InvalidArgumentException;
  */
 class HarvestService
 {
-    public function __construct(private TreatmentService $treatments) {}
+    public function __construct(
+        private TreatmentService $treatments,
+        private ProduceStockService $produceStock,
+    ) {}
 
     /**
-     * @param  array{quantity: float|int|string, harvested_at: string, unit?: string, quality?: ?string, notes?: ?string}  $data
+     * @param  array{quantity: float|int|string, harvested_at: string, unit?: string, quality?: ?string, notes?: ?string, harvest_code?: ?string, harvested_area_m2?: float|int|string|null, loss_quantity?: float|int|string|null, grade?: ?string}  $data
      *
      * @throws HarvestTooEarlyException
      */
@@ -41,7 +44,7 @@ class HarvestService
                 throw new HarvestTooEarlyException($lockedCampaign, $harvestedAt, $minimum);
             }
 
-            return $lockedCampaign->harvests()->create([
+            $harvest = $lockedCampaign->harvests()->create([
                 'farm_id' => $lockedCampaign->farm_id,
                 'harvested_at' => $harvestedAt,
                 'quantity' => $quantity,
@@ -49,7 +52,15 @@ class HarvestService
                 'quality' => $data['quality'] ?? null,
                 'recorded_by' => $actor->id,
                 'notes' => $data['notes'] ?? null,
+                'harvest_code' => $data['harvest_code'] ?? null,
+                'harvested_area_m2' => $data['harvested_area_m2'] ?? null,
+                'loss_quantity' => $data['loss_quantity'] ?? 0,
+                'grade' => $data['grade'] ?? null,
             ]);
+
+            $this->produceStock->createLotFromHarvest($harvest, $actor);
+
+            return $harvest;
         });
 
         DashboardCache::forget($campaign->farm);
