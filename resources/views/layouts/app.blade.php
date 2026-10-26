@@ -1,19 +1,35 @@
 @php
+    $modulePatterns = [
+        'modules.index',
+        'crops.*',
+        'calendar.*',
+        'calendar-steps.*',
+        'inputs.*',
+        'stock-movements.*',
+        'treatments.*',
+        'harvests.*',
+        'produce-lots.*',
+        'sales.*',
+        'customers.*',
+        'expenses.*',
+        'revenues.*',
+        'farms.*',
+        'team.*',
+        'audit.*',
+        'resources.*',
+        'notifications.*',
+    ];
+
     $navItems = [
         ['route' => 'dashboard', 'label' => 'Tableau de bord', 'pattern' => 'dashboard'],
+        ['route' => 'farm-map.index', 'label' => 'Plan', 'pattern' => 'farm-map.*'],
         ['route' => 'production-units.index', 'label' => 'Parcelles', 'pattern' => 'production-units.*'],
-        ['route' => 'crops.index', 'label' => 'Cultures', 'pattern' => 'crops.*'],
         ['route' => 'campaigns.index', 'label' => 'Campagnes', 'pattern' => 'campaigns.*'],
         ['route' => 'activities.index', 'label' => 'Activités', 'pattern' => 'activities.*'],
-        ['route' => 'inputs.index', 'label' => 'Intrants & stocks', 'pattern' => ['inputs.*', 'stock-movements.*']],
-        ['route' => 'treatments.index', 'label' => 'Traitements', 'pattern' => 'treatments.*'],
-        ['route' => 'harvests.index', 'label' => 'Récoltes', 'pattern' => 'harvests.*'],
+        ['route' => 'irrigation.index', 'label' => 'Irrigation', 'pattern' => 'irrigation.*'],
+        ['route' => 'calendar.index', 'label' => 'Agenda', 'pattern' => 'calendar.*'],
         ['route' => 'produce-lots.index', 'label' => 'Stock récolté', 'pattern' => 'produce-lots.*'],
-        ['route' => 'sales.index', 'label' => 'Ventes', 'pattern' => 'sales.*'],
-        ['route' => 'customers.index', 'label' => 'Clients', 'pattern' => 'customers.*'],
-        ['route' => 'expenses.index', 'label' => 'Dépenses', 'pattern' => 'expenses.*'],
-        ['route' => 'revenues.index', 'label' => 'Recettes', 'pattern' => 'revenues.*'],
-        ['route' => 'calendar-steps.index', 'label' => 'Modèles de calendrier', 'pattern' => 'calendar-steps.*'],
+        ['route' => 'modules.index', 'label' => 'Tout', 'pattern' => $modulePatterns],
     ];
 
     $role = $currentRole ?? null;
@@ -120,20 +136,6 @@
                         {{ $item['label'] }}
                     </a>
                 @endforeach
-                @can('manage-team', $currentFarm)
-                    <a href="{{ route('team.index') }}"
-                       @if (request()->routeIs('team.*')) aria-current="page" @endif
-                       class="nav-link shrink-0 rounded-full px-3 py-1.5 whitespace-nowrap transition duration-200 {{ request()->routeIs('team.*') ? 'bg-emerald-950/35 font-semibold shadow-inner' : 'hover:-translate-y-0.5 hover:bg-emerald-950/20' }}">
-                        Équipe
-                    </a>
-                @endcan
-                @if ($currentFarm && Gate::allows('viewAny', App\Models\AuditLog::class))
-                    <a href="{{ route('audit.index') }}"
-                       @if (request()->routeIs('audit.index')) aria-current="page" @endif
-                       class="nav-link shrink-0 rounded-full px-3 py-1.5 whitespace-nowrap transition duration-200 {{ request()->routeIs('audit.index') ? 'bg-emerald-950/35 font-semibold shadow-inner' : 'hover:-translate-y-0.5 hover:bg-emerald-950/20' }}">
-                        Journal
-                    </a>
-                @endif
             </div>
         </nav>
     @endif
@@ -165,7 +167,11 @@
             <img src="{{ asset('images/favicon-32.png') }}" alt="" class="h-5 w-5 rounded">
             VolyLegume — gestion de l’exploitation maraîchère
         </span>
-        <a href="{{ route('resources.index') }}" class="text-emerald-600 transition hover:text-emerald-800">Ressources &amp; tutoriels</a>
+        <span class="flex items-center gap-3">
+            <a href="{{ route('modules.index') }}" class="text-emerald-600 transition hover:text-emerald-800">Toutes les fonctions</a>
+            <span aria-hidden="true" class="text-slate-300">·</span>
+            <a href="{{ route('resources.index') }}" class="text-emerald-600 transition hover:text-emerald-800">Ressources &amp; tutoriels</a>
+        </span>
     </footer>
 </body>
 </html>
