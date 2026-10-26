@@ -24,9 +24,12 @@ class ProductionUnitFactory extends Factory
             'code' => 'P'.fake()->unique()->numberBetween(1, 999),
             'name' => 'Parcelle '.fake()->word(),
             'area_m2' => fake()->randomFloat(2, 50, 800),
+            'length_m' => fake()->randomFloat(2, 5, 40),
+            'width_m' => fake()->randomFloat(2, 5, 40),
             'location' => 'Rangée '.fake()->numberBetween(1, 25),
             'type' => 'plot',
             'status' => ProductionUnitStatus::Available->value,
+            'photo_path' => null,
         ];
     }
 }

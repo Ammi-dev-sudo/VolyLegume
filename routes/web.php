@@ -83,6 +83,9 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', 'farm'])->group(function () {
+    Route::get('plan', [FarmMapController::class, 'index'])->name('farm-map.index');
+    Route::get('modules', [ModuleController::class, 'index'])->name('modules.index');
+
     Route::get('agenda', [CalendarController::class, 'index'])->name('calendar.index');
 
     Route::get('journal', [AuditLogController::class, 'index'])->name('audit.index');
@@ -98,6 +101,8 @@ Route::middleware(['auth', 'farm'])->group(function () {
     Route::get('parcelles/{productionUnit}/modifier', [ProductionUnitController::class, 'edit'])->name('production-units.edit');
     Route::put('parcelles/{productionUnit}', [ProductionUnitController::class, 'update'])->name('production-units.update');
     Route::delete('parcelles/{productionUnit}', [ProductionUnitController::class, 'destroy'])->name('production-units.destroy');
+    Route::post('parcelles/{productionUnit}/photos', [ProductionUnitPhotoController::class, 'store'])->name('production-units.photos.store');
+    Route::delete('parcelles/photos/{productionUnitPhoto}', [ProductionUnitPhotoController::class, 'destroy'])->name('production-units.photos.destroy');
 
     Route::get('cultures', [CropController::class, 'index'])->name('crops.index');
     Route::get('cultures/creer', [CropController::class, 'create'])->name('crops.create');

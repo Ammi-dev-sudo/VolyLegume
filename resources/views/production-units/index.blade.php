@@ -23,7 +23,9 @@
                         <th class="py-2 pr-4">Code</th>
                         <th class="py-2 pr-4">Nom</th>
                         <th class="py-2 pr-4">Superficie</th>
+                        <th class="py-2 pr-4">Dimensions</th>
                         <th class="py-2 pr-4">Localisation</th>
+                        <th class="py-2 pr-4">Photo</th>
                         <th class="py-2 pr-4">Statut</th>
                         <th class="py-2 text-right">Actions</th>
                     </tr>
@@ -34,7 +36,17 @@
                             <td class="py-2 pr-4 font-mono text-xs">{{ $unit->code }}</td>
                             <td class="py-2 pr-4">{{ $unit->name }}</td>
                             <td class="py-2 pr-4">{{ number_format((float) $unit->area_m2, 0, ',', ' ') }} m²</td>
+                            <td class="py-2 pr-4 text-xs">{{ ($unit->length_m !== null && $unit->width_m !== null) ? number_format((float)$unit->length_m,2,',',' ').' × '.number_format((float)$unit->width_m,2,',',' ').' m' : '—' }}</td>
                             <td class="py-2 pr-4">{{ $unit->location }}</td>
+                            <td class="py-2 pr-4 text-xs">
+                                @if ($unit->photo_path)
+                                    Oui
+                                @elseif (($unit->photos_count ?? 0) > 0)
+                                    {{ $unit->photos_count }} photo(s)
+                                @else
+                                    —
+                                @endif
+                            </td>
                             <td class="py-2 pr-4">
                                 <span class="rounded px-2 py-0.5 text-xs
                                     {{ $unit->status->value === 'occupied' ? 'bg-emerald-100 text-emerald-800' : ($unit->status->value === 'inactive' ? 'bg-slate-200 text-slate-600' : 'bg-slate-100 text-slate-700') }}">

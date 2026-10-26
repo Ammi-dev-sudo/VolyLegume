@@ -8,6 +8,7 @@ use App\Models\ProductionUnit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -19,6 +20,7 @@ class ProductionUnitController extends Controller
     {
         $units = ProductionUnit::query()
             ->forFarm($this->farmId())
+            ->withCount('photos')
             ->orderBy('code')
             ->paginate(15);
 
@@ -44,13 +46,22 @@ class ProductionUnitController extends Controller
             'code' => ['required', 'string', 'max:30', Rule::unique('production_units', 'code')->where('farm_id', $farmId)],
             'name' => ['required', 'string', 'max:120'],
             'area_m2' => ['required', 'numeric', 'gt:0'],
+            'length_m' => ['nullable', 'numeric', 'gt:0'],
+            'width_m' => ['nullable', 'numeric', 'gt:0'],
             'location' => ['required', 'string', 'max:255'],
             'status' => ['required', Rule::enum(ProductionUnitStatus::class)],
+            'photo' => ['nullable', 'image', 'max:5120'],
         ]);
+
+        $photoPath = null;
+        if ($request->hasFile('photo')) {
+            $photoPath = $request->file('photo')->store('production-units', 'public');
+        }
 
         ProductionUnit::create($validated + [
             'farm_id' => $farmId,
             'type' => 'plot',
+            'photo_path' => $photoPath,
         ]);
 
         return redirect()->route('production-units.index')
@@ -74,9 +85,29 @@ class ProductionUnitController extends Controller
                 ->ignore($productionUnit->id)],
             'name' => ['required', 'string', 'max:120'],
             'area_m2' => ['required', 'numeric', 'gt:0'],
+            'length_m' => ['nullable', 'numeric', 'gt:0'],
+            'width_m' => ['nullable', 'numeric', 'gt:0'],
             'location' => ['required', 'string', 'max:255'],
             'status' => ['required', Rule::enum(ProductionUnitStatus::class)],
+            'photo' => ['nullable', 'image', 'max:5120'],
+            'remove_photo' => ['nullable', 'boolean'],
         ]);
+
+        if ($request->boolean('remove_photo') && $productionUnit->photo_path) {
+            if (Storage::disk('public')->exists($productionUnit->photo_path)) {
+                Storage::disk('public')->delete($productionUnit->photo_path);
+            }
+            $validated['photo_path'] = null;
+        }
+
+        if ($request->hasFile('photo')) {
+            if ($productionUnit->photo_path && Storage::disk('public')->exists($productionUnit->photo_path)) {
+                Storage::disk('public')->delete($productionUnit->photo_path);
+            }
+            $validated['photo_path'] = $request->file('photo')->store('production-units', 'public');
+        }
+
+        unset($validated['photo'], $validated['remove_photo']);
 
         $productionUnit->update($validated);
 

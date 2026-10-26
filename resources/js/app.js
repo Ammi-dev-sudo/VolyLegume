@@ -358,6 +358,102 @@ function initButtonFeedback() {
     });
 }
 
+/**
+ * Plan interactif : sélection des parcelles, panneau de détail et bascule
+ * entre le plan 2D et le relief décoratif.
+ */
+function initFarmMap() {
+    const root = document.querySelector('[data-farm-map]');
+
+    if (!root) {
+        return;
+    }
+
+    const stage = root.querySelector('[data-map-stage]');
+    const overview = root.querySelector('[data-map-overview]');
+    const details = [...root.querySelectorAll('[data-map-detail]')];
+    const plots = [...root.querySelectorAll('[data-plot-target]')];
+    const modeButtons = [...root.querySelectorAll('[data-map-mode]')];
+
+    if (!stage) {
+        return;
+    }
+
+    const setMode = (mode) => {
+        stage.dataset.mode = mode;
+
+        modeButtons.forEach((button) => {
+            const active = button.dataset.mapMode === mode;
+
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    };
+
+    const close = () => {
+        details.forEach((detail) => {
+            detail.hidden = true;
+        });
+
+        if (overview) {
+            overview.hidden = false;
+        }
+
+        plots.forEach((plot) => {
+            plot.classList.remove('is-selected');
+            plot.setAttribute('aria-pressed', 'false');
+        });
+    };
+
+    const open = (id, source) => {
+        const target = details.find((detail) => detail.dataset.mapDetail === id);
+
+        if (!target) {
+            return;
+        }
+
+        details.forEach((detail) => {
+            detail.hidden = detail !== target;
+        });
+
+        if (overview) {
+            overview.hidden = true;
+        }
+
+        plots.forEach((plot) => {
+            const selected = plot === source;
+
+            plot.classList.toggle('is-selected', selected);
+            plot.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        });
+
+        if (window.matchMedia('(max-width: 1279px)').matches) {
+            target.scrollIntoView({ behavior: REDUCED_MOTION ? 'auto' : 'smooth', block: 'start' });
+        }
+    };
+
+    modeButtons.forEach((button) => {
+        button.addEventListener('click', () => setMode(button.dataset.mapMode));
+    });
+
+    plots.forEach((plot) => {
+        plot.setAttribute('aria-pressed', 'false');
+        plot.addEventListener('click', () => open(plot.dataset.plotTarget, plot));
+    });
+
+    root.querySelectorAll('[data-map-close]').forEach((button) => {
+        button.addEventListener('click', close);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            close();
+        }
+    });
+
+    setMode('plan');
+}
+
 function init() {
     initReveal();
     initCounters();
@@ -367,6 +463,7 @@ function init() {
     initTiltCards();
     initSpotlightCards();
     initParallax();
+    initFarmMap();
     initPasswordToggles();
     initButtonFeedback();
 }

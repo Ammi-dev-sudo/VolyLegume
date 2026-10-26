@@ -31,6 +31,7 @@ class ProductionUnit extends Model
         'type',
         'status',
         'notes',
+        'photo_path',
     ];
 
     protected function casts(): array
@@ -53,5 +54,15 @@ class ProductionUnit extends Model
     public function campaigns(): HasMany
     {
         return $this->hasMany(Campaign::class, 'production_unit_id');
+    }
+
+    public function irrigationEvents(): HasMany
+    {
+        return $this->hasMany(IrrigationEvent::class);
+    }
+
+    public function photos(): HasMany
+    {
+        return $this->hasMany(ProductionUnitPhoto::class)->orderByDesc('taken_at')->orderByDesc('id');
     }
 }

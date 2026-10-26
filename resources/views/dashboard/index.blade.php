@@ -36,9 +36,13 @@
                         </svg>
                         Agenda
                     </a>
-                    <a href="{{ route('resources.index') }}"
+                    <a href="{{ route('farm-map.index') }}"
                        class="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/25 transition hover:-translate-y-0.5 hover:bg-white/15">
-                        Ressources &amp; tutoriels
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                            <path d="M4 6.5 9 4l6 2.5L20 4v13.5L15 20l-6-2.5L4 20V6.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M9 4v13.5M15 6.5V20" stroke-linecap="round" />
+                        </svg>
+                        Plan des parcelles
                     </a>
                 </div>
             </div>
