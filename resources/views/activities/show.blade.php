@@ -34,9 +34,17 @@
         </div>
     </div>
 
-    @if ($activity->isLate())
+    @if ($activity->isCriticallyLate())
+        <div class="mb-4 rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+            <p class="font-semibold">Alerte : activité en retard de {{ $activity->daysLate() }} jours (date prévue le {{ $activity->planned_date->format('d/m/Y') }}).</p>
+            @if ($activity->overdue_consequence)
+                <p class="mt-1">Conséquence : {{ $activity->overdue_consequence }}</p>
+            @endif
+            <p class="mt-1 text-xs font-medium">Action attendue : réaliser l’activité ou la replanifier dès que possible, puis documenter la décision.</p>
+        </div>
+    @elseif ($activity->isLate())
         <div class="mb-4 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Cette activité a dépassé sa date prévue ({{ $activity->planned_date->format('d/m/Y') }}).
+            Activité en retard de {{ $activity->daysLate() }} jour(s) (date prévue le {{ $activity->planned_date->format('d/m/Y') }}). L’alerte critique se déclenche au-delà de 3 jours.
         </div>
     @endif
 

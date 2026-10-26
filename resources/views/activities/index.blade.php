@@ -79,6 +79,10 @@
                 <input type="checkbox" name="overdue" value="1" @checked(request()->boolean('overdue')) class="rounded border-slate-300 text-emerald-700">
                 En retard uniquement
             </label>
+            <label class="flex items-center gap-2">
+                <input type="checkbox" name="critical" value="1" @checked(request()->boolean('critical')) class="rounded border-slate-300 text-red-700">
+                Alerte critique (&gt; 3 jours)
+            </label>
             <select name="sort" class="rounded border border-slate-300 px-2 py-1.5">
                 @foreach (['planned_date' => 'Date prévue', 'status' => 'Statut', 'type' => 'Type', 'title' => 'Intitulé'] as $sortKey => $sortLabel)
                     <option value="{{ $sortKey }}" @selected(request('sort') === $sortKey)>{{ $sortLabel }}</option>
@@ -111,11 +115,14 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     @foreach ($activities as $activity)
-                        <tr class="{{ $activity->isLate() ? 'bg-amber-50' : '' }}">
+                        <tr class="{{ $activity->isCriticallyLate() ? 'bg-red-50' : ($activity->isLate() ? 'bg-amber-50' : '') }}">
                             <td class="py-2 pr-4">
                                 <a href="{{ route('activities.show', $activity) }}" class="font-medium text-emerald-700 hover:underline">
                                     {{ $activity->title }}
                                 </a>
+                                @if ($activity->isCriticallyLate())
+                                    <span class="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-red-700">Retard {{ $activity->daysLate() }} j</span>
+                                @endif
                             </td>
                             <td class="py-2 pr-4 text-xs">
                                 {{ $activity->campaign?->name ?? '—' }}

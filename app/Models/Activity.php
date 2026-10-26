@@ -28,6 +28,8 @@ class Activity extends Model
         'duration_hours',
         'workers_count',
         'weather_conditions',
+        'overdue_notified_at',
+        'overdue_consequence',
         'status',
         'assigned_to',
         'created_by',
@@ -47,6 +49,7 @@ class Activity extends Model
             'workers_count' => 'integer',
             'estimated_cost' => 'decimal:2',
             'actual_cost' => 'decimal:2',
+            'overdue_notified_at' => 'datetime',
         ];
     }
 
@@ -89,6 +92,21 @@ class Activity extends Model
 
         return $this->status === ActivityStatus::Planned
             && $this->planned_date->endOfDay()->lt($at);
+    }
+
+    public function daysLate(?CarbonInterface $at = null): int
+    {
+        $at ??= now();
+
+        return max(0, (int) $this->planned_date->startOfDay()->diffInDays($at->copy()->startOfDay(), false));
+    }
+
+    /**
+     * Une activité est critique lorsque son retard dépasse trois jours.
+     */
+    public function isCriticallyLate(?CarbonInterface $at = null): bool
+    {
+        return $this->isLate($at) && $this->daysLate($at) > 3;
     }
 
     public function scopeOverdue(Builder $query, ?CarbonInterface $at = null): Builder

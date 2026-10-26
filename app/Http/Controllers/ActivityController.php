@@ -37,6 +37,9 @@ class ActivityController extends Controller
             ->when($request->filled('from'), fn ($query) => $query->whereDate('planned_date', '>=', $request->date('from')))
             ->when($request->filled('to'), fn ($query) => $query->whereDate('planned_date', '<=', $request->date('to')))
             ->when($request->filled('search'), fn ($query) => $query->where('title', 'like', '%'.$request->string('search').'%'))
+            ->when($request->boolean('critical'), fn ($query) => $query
+                ->where('status', ActivityStatus::Planned->value)
+                ->whereDate('planned_date', '<', today()->subDays(3)))
             ->when($request->boolean('overdue'), fn ($query) => $query->overdue())
             ->orderBy(
                 in_array($request->string('sort')->toString(), ['planned_date', 'status', 'type', 'title'], true)
@@ -78,6 +81,7 @@ class ActivityController extends Controller
         $activity = Activity::create($request->toActivityAttributes() + [
             'farm_id' => $this->farmId(),
             'created_by' => $request->user()->id,
+            'overdue_consequence' => $this->consequenceFor($request->toActivityAttributes()['type'] ?? null),
         ]);
 
         return redirect()->route('activities.show', $activity)->with('status', 'Activité enregistrée.');
@@ -86,6 +90,19 @@ class ActivityController extends Controller
     public function show(Activity $activity): View
     {
         $activity->load(['campaign.productionUnit', 'calendarStep', 'assignedTo', 'createdBy', 'performedBy']);
+
+        if ($activity->isCriticallyLate() && $activity->overdue_notified_at === null) {
+            $activity->forceFill([
+                'overdue_notified_at' => now(),
+                'overdue_consequence' => $activity->overdue_consequence ?? $this->consequenceFor($activity->type),
+            ])->save();
+            $activity->refresh();
+        } elseif ($activity->isCriticallyLate() && $activity->overdue_consequence === null) {
+            $activity->forceFill([
+                'overdue_consequence' => $this->consequenceFor($activity->type),
+            ])->save();
+            $activity->refresh();
+        }
 
         return view('activities.show', compact('activity'));
     }
@@ -99,7 +116,12 @@ class ActivityController extends Controller
     {
         Gate::authorize('update', $activity);
 
-        $activity->update($request->toActivityAttributes());
+        $attributes = $request->toActivityAttributes();
+        if (($attributes['type'] ?? null) !== null && $activity->overdue_consequence === null) {
+            $attributes['overdue_consequence'] = $this->consequenceFor($attributes['type']);
+        }
+
+        $activity->update($attributes);
 
         return redirect()->route('activities.show', $activity)->with('status', 'Activité mise à jour.');
     }
@@ -140,6 +162,25 @@ class ActivityController extends Controller
         ]);
 
         return redirect()->route('activities.show', $activity)->with('status', 'Activité marquée comme réalisée.');
+    }
+
+    private function consequenceFor($type): string
+    {
+        if ($type instanceof ActivityType) {
+            $type = $type->value;
+        }
+
+        return match ($type) {
+            ActivityType::SoilPreparation->value, ActivityType::Sowing->value, ActivityType::Transplanting->value => 'Retarder cette opération peut réduire l’installation de la culture et resserrer le calendrier global.',
+            ActivityType::Irrigation->value => 'Un arrosage en retard peut entraîner un stress hydrique et une baisse de développement.',
+            ActivityType::Fertilization->value => 'Un apport fertilisant tardif risque d’être moins efficace et peut déséquilibrer la nutrition.',
+            ActivityType::Treatment->value => 'Un traitement en retard peut permettre la progression d’un ravageur/maladie et réduire l’efficacité, ce qui peut impacter le délai avant récolte.',
+            ActivityType::Weeding->value => 'Un désherbage tardif favorise la concurrence et complique le travail ultérieur.',
+            ActivityType::Harvest->value => 'Un retard de récolte peut dégrader la qualité, augmenter les pertes et limiter les possibilités de commercialisation.',
+            ActivityType::Observation->value => 'Sans observation à temps, les problèmes ne sont pas détectés et la réponse est repoussée.',
+            ActivityType::Maintenance->value => 'Un entretien reporté augmente le risque de panne et peut bloquer les travaux suivants.',
+            default => 'Au-delà de 3 jours de retard, l’exécution de cette étape risque de compresser le calendrier cultural et d’augmenter le risque sur la campagne.',
+        };
     }
 
     /**

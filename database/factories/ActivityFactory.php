@@ -30,11 +30,17 @@ class ActivityFactory extends Factory
             'description' => null,
             'planned_date' => fake()->dateTimeBetween('-1 month', '+1 month')->format('Y-m-d'),
             'performed_at' => null,
+            'duration_hours' => null,
+            'workers_count' => null,
+            'weather_conditions' => null,
+            'overdue_notified_at' => null,
+            'overdue_consequence' => null,
             'status' => ActivityStatus::Planned->value,
             'assigned_to' => null,
             'created_by' => User::factory(),
             'performed_by' => null,
             'estimated_cost' => null,
+            'actual_cost' => null,
         ];
     }
 

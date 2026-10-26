@@ -83,6 +83,11 @@ class DashboardService
 
         $lateActivities = (clone $activitiesQuery)->overdue()->count();
 
+        $criticalActivities = (clone $activitiesQuery)
+            ->where('status', ActivityStatus::Planned->value)
+            ->whereDate('planned_date', '<', today()->subDays(3))
+            ->count();
+
         $harvestsQuery = Harvest::query()->forFarm($farm->id)
             ->whereBetween('harvested_at', [$from.' 00:00:00', $to.' 23:59:59'])
             ->when($campaignId, fn ($query) => $query->where('campaign_id', $campaignId));
@@ -124,6 +129,7 @@ class DashboardService
                 ])
                 ->all(),
             'late_activities' => $lateActivities,
+            'critical_activities' => $criticalActivities,
             'completion_rate' => $totalActivities > 0
                 ? round($completedActivities / $totalActivities * 100, 1)
                 : null,
@@ -154,6 +160,8 @@ class DashboardService
                     'status_value' => $activity->status->value,
                     'status_label' => $activity->status->label(),
                     'is_late' => $activity->isLate(),
+                    'is_critical' => $activity->isCriticallyLate(),
+                    'days_late' => $activity->daysLate(),
                 ])
                 ->all(),
         ];

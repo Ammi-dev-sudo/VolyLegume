@@ -134,6 +134,9 @@
                 {{ $metrics['completion_rate'] !== null ? number_format($metrics['completion_rate'], 1, ',', ' ') . ' %' : '—' }}
             </p>
             <p class="text-xs text-slate-500">{{ $metrics['late_activities'] }} activité(s) en retard</p>
+            @if ($metrics['critical_activities'] > 0)
+                <p class="mt-1 text-xs font-semibold text-red-600">{{ $metrics['critical_activities'] }} alerte(s) critique(s) &gt; 3 jours</p>
+            @endif
         </x-card>
         <x-card>
             <p class="text-xs uppercase tracking-wide text-slate-500">Récolte</p>
@@ -205,8 +208,8 @@
                             <td class="py-2 pr-4">{{ $activity['planned_date'] }}</td>
                             <td class="py-2">
                                 <span class="rounded px-2 py-0.5 text-xs
-                                    {{ $activity['status_value'] === 'completed' ? 'bg-emerald-100 text-emerald-800' : ($activity['is_late'] ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700') }}">
-                                    {{ $activity['status_label'] }}
+                                    {{ $activity['status_value'] === 'completed' ? 'bg-emerald-100 text-emerald-800' : ($activity['is_critical'] ? 'bg-red-100 text-red-800' : ($activity['is_late'] ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700')) }}">
+                                    {{ $activity['status_label'] }}@if ($activity['is_late']) · {{ $activity['days_late'] }} j @endif
                                 </span>
                             </td>
                         </tr>
