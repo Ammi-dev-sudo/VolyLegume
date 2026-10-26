@@ -8,6 +8,7 @@ use App\Models\Farm;
 use App\Models\Harvest;
 use App\Models\ProduceLot;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<ProduceLot>
@@ -42,6 +43,8 @@ class ProduceLotFactory extends Factory
             'storage_location' => 'Hangar',
             'status' => ProduceLotStatus::Available->value,
             'notes' => null,
+            'qr_code_path' => null,
+            'trace_token' => Str::random(40),
         ];
     }
 }

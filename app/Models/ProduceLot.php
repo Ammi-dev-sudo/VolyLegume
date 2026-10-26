@@ -28,6 +28,8 @@ class ProduceLot extends Model
         'storage_location',
         'status',
         'notes',
+        'qr_code_path',
+        'trace_token',
     ];
 
     protected function casts(): array

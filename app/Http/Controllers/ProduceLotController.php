@@ -8,6 +8,7 @@ use App\Http\Controllers\Concerns\UsesFarmContext;
 use App\Models\Campaign;
 use App\Models\ProduceLot;
 use App\Services\ProduceStockService;
+use App\Services\QrCodeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -66,6 +67,15 @@ class ProduceLotController extends Controller
                 ProduceMovementType::Adjustment,
             ]),
         ]);
+    }
+
+    public function generateQr(ProduceLot $produceLot, QrCodeService $qr): RedirectResponse
+    {
+        Gate::authorize('view', $produceLot);
+
+        $qr->ensureForLot($produceLot);
+
+        return redirect()->route('produce-lots.show', $produceLot)->with('status', 'QR code de traçabilité généré.');
     }
 
     public function storeMovement(Request $request, ProduceLot $produceLot, ProduceStockService $stock): RedirectResponse

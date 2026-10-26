@@ -149,6 +149,23 @@
         </div>
 
         <div class="space-y-6">
+            <x-card title="Traçabilité & QR" subtitle="Accès public à l'historique du lot">
+                <div class="space-y-3 text-sm">
+                    @if ($lot->trace_token)
+                        <p class="text-xs text-slate-600">Lien de traçabilité : <a href="{{ route('traceability.show', ['token' => $lot->trace_token]) }}" class="text-emerald-700 hover:underline" target="_blank">{{ route('traceability.show', ['token' => $lot->trace_token]) }}</a></p>
+                    @endif
+                    @if ($lot->qr_code_path)
+                        <img src="{{ asset('storage/'.$lot->qr_code_path) }}" alt="QR code du lot {{ $lot->code }}" class="h-40 w-40 rounded border border-slate-200 bg-white p-1">
+                    @endif
+                    <form method="POST" action="{{ route('produce-lots.qr.generate', $lot) }}">
+                        @csrf
+                        <button type="submit" class="rounded bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-900">
+                            {{ $lot->qr_code_path ? 'Régénérer le QR code' : 'Générer le QR code' }}
+                        </button>
+                    </form>
+                </div>
+            </x-card>
+
             @can('adjust', $lot)
                 <x-card title="Ajuster le stock" subtitle="Perte, don, autoconsommation ou correction">
                     <form method="POST" action="{{ route('produce-lots.movements.store', $lot) }}" class="space-y-4">

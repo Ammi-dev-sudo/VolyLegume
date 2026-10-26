@@ -165,6 +165,7 @@ Route::middleware(['auth', 'farm'])->group(function () {
     Route::get('stock-recolte', [ProduceLotController::class, 'index'])->name('produce-lots.index');
     Route::get('stock-recolte/{produceLot}', [ProduceLotController::class, 'show'])->name('produce-lots.show');
     Route::post('stock-recolte/{produceLot}/mouvement', [ProduceLotController::class, 'storeMovement'])->name('produce-lots.movements.store');
+    Route::post('stock-recolte/{produceLot}/qr', [ProduceLotController::class, 'generateQr'])->name('produce-lots.qr.generate');
 
     Route::get('clients', [CustomerController::class, 'index'])->name('customers.index');
     Route::get('clients/creer', [CustomerController::class, 'create'])->name('customers.create');
