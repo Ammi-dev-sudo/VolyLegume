@@ -8,6 +8,12 @@ Application web de gestion d'exploitations maraîchères, projet fil rouge du BU
 - Rôles d'exploitation : Responsable (chef d'exploitation), Agent, Admin — gestion des rattachements (équipiers)
 - Rôle global d'administrateur de plateforme : supervision des comptes, des exploitations et du journal transversal
 - Parcelles et cultures (référentiels), campagnes (semis / plantation), calendrier cultural généré et replanifiable
+- Plan interactif des parcelles : disposition proportionnelle aux surfaces, sélection d'une parcelle, campagne en cours, prochaines activités, récoltes, alertes, galerie photos et bascule vers un relief 3D indicatif
+- Navigation principale élargie (tableau de bord, plan, parcelles, campagnes, activités, irrigation, agenda, stock récolté, hub) avec un hub regroupant les fonctions secondaires
+- Irrigation et eau : saisie des arrosages par parcelle et campagne, volumes, durées, m³/m², quotas d'eau paramétrables et comparaison entre campagnes
+- Photos d'exploitation : photo principale de parcelle et historique de photos rattachables à une campagne ou une activité
+- Alertes d'activités en retard : alerte critique au-delà de 3 jours, conséquence métier et action attendue
+- Traçabilité par QR code : génération d'un QR scannable par lot, page publique de traçabilité et historique de la parcelle à la récolte
 - Activités de suivi (labor, désherbage, irrigation, observation…), traitements phytosanitaires avec **délai avant récolte bloquant** (borne serveur)
 - Intrants, mouvements de stock (entrées, consommations, corrections), alertes sous seuil
 - Récoltes avec contrôle de la borne minimale (récolte bloquée tant que le délai n'est pas écoulé)
@@ -34,7 +40,7 @@ Application web de gestion d'exploitations maraîchères, projet fil rouge du BU
 
 ## Prérequis
 
-- PHP 8.3+ avec les extensions `pdo_pgsql` et (pour les tests) `pdo_sqlite`
+- PHP 8.3+ avec les extensions `pdo_pgsql`, `gd` (rendu des QR codes) et (pour les tests) `pdo_sqlite`
 - Composer, Node.js 20+, Docker (ou un PostgreSQL local)
 
 ```bash
@@ -206,7 +212,22 @@ Chaque réponse inclut `X-Farm-Id` et des en-têtes de pagination (`X-Per-Page`,
 php artisan test           # ou : vendor/bin/phpunit
 ```
 
-La suite (100 tests, 318 assertions) tourne sur SQLite en mémoire et couvre l'authentification API, l'isolation entre exploitations, les rôles et Policies, les stocks, le délai avant récolte, la chaîne commerciale (lots, ventes, paiements, annulation), les finances, le journal d'audit, l'administration plateforme et l'API.
+La suite (123 tests, 419 assertions) tourne sur SQLite en mémoire et couvre l'authentification API, l'isolation entre exploitations, les rôles et Policies, les stocks, le délai avant récolte, la chaîne commerciale (lots, ventes, paiements, annulation), les finances, le plan interactif, l'irrigation, les photos de parcelles, les alertes de retard critique, la traçabilité QR, le hub de modules, le journal d'audit, l'administration plateforme et l'API.
+
+À chaque `push` et `pull request`, GitHub Actions (`.github/workflows/ci.yml`) rejoue la suite sur SQLite puis sur PostgreSQL 18, vérifie le formatage avec Pint et compile les assets Vite. Le workflow contrôle aussi que les compteurs ci-dessus restent synchronisés avec le rapport JUnit ; mettez-les à jour lorsque la suite évolue.
+
+Pour rejouer la suite sur PostgreSQL en local, sans toucher à la base de démonstration :
+
+```bash
+# une seule fois
+docker compose exec postgres createdb -U volylegume volylegume_test
+
+# à chaque exécution
+DB_CONNECTION=pgsql DB_PORT=5433 DB_DATABASE=volylegume_test \
+  DB_USERNAME=volylegume DB_PASSWORD=volylegume_secret php artisan test
+```
+
+Ces variables d'environnement prennent le pas sur les valeurs SQLite de `phpunit.xml`.
 
 ## Rapport technique
 

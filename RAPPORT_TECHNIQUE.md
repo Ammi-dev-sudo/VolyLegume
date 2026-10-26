@@ -16,7 +16,7 @@ VolyLegume est une application web de gestion d'exploitations maraîchères con�
 
 Le présent rapport documente l'architecture, les choix techniques, les règles métier, le dispositif de sécurité, le journal d'audit, les tests et les conditions d'exploitation de la version livrée. Il met également en évidence la conformité au cahier des charges, les écarts résiduels et les perspectives d'évolution.
 
-La version décrite est couverte par **100 tests automatisés et 318 assertions**, tous réussis. Elle comprend un contrôle d'accès centralisé par Policies Laravel, un journal d'audit transversal, un panneau d'administration de plateforme, un module de calendrier cultural, un module de fiches de culture et une chaîne commerciale complète : lot de récolte, stock de produits frais, clients, ventes multi-lignes, paiements partiels, recettes et annulation avec restitution du stock.
+La version décrite est couverte par **123 tests automatisés et 419 assertions**, tous réussis. Elle comprend un contrôle d'accès centralisé par Policies Laravel, un journal d'audit transversal, un panneau d'administration de plateforme, un plan interactif des parcelles, un module de calendrier cultural, un module de fiches de culture, un suivi d'irrigation avec quotas d'eau, un historique photo des parcelles, des alertes de retard critique au-delà de 3 jours, la traçabilité publique par QR code et une chaîne commerciale complète : lot de récolte, stock de produits frais, clients, ventes multi-lignes, paiements partiels, recettes et annulation avec restitution du stock. La navigation principale reste lisible tout en donnant accès direct aux fonctions quotidiennes ; les fonctions secondaires sont regroupées dans un hub dédié, accessible en un clic.
 
 ---
 
@@ -68,8 +68,12 @@ Le périmètre fonctionnel couvre :
 - les rôles d'exploitation : administrateur, responsable, agent ;
 - un rôle global d'administrateur de plateforme ;
 - les parcelles et les cultures ;
+- un plan interactif des parcelles, avec relief indicatif et panneau de détail ;
 - les campagnes culturales et le calendrier cultural ;
-- les activités de suivi ;
+- les activités de suivi, avec alertes de retard critique au-delà de 3 jours ;
+- l'irrigation et le suivi des volumes d'eau par campagne ;
+- les photos de parcelles et leur historique ;
+- la traçabilité publique des lots par QR code ;
 - les intrants, les mouvements de stock et les alertes de seuil ;
 - les traitements phytosanitaires et le délai avant récolte ;
 - les récoltes et les lots de produits frais ;
@@ -183,6 +187,8 @@ Le tableau suivant synthétise les besoins fonctionnels et leur mise en œuvre.
 | BF28 | Ventes multi-lignes | `Sale`, `SaleItem`, `SaleService` | Couvert |
 | BF29 | Paiements et reste à payer | `Payment`, `SaleService::recordPayment` | Couvert |
 | BF30 | Traçabilité commerciale | Lot → récolte → campagne → vente → recette | Couvert |
+| BF31 | Plan interactif des parcelles | `FarmMapService`, vue `/plan`, relief CSS | Couvert |
+| BF32 | Navigation par hub | Menu principal réduit, `ModuleController`, vue `/modules` | Couvert |
 
 ## 2.3 Règles de gestion principales
 
@@ -242,6 +248,14 @@ Chaque récolte crée un lot unique avec un mouvement d'entrée. Toute sortie (v
 
 Une vente confirmée calcule son sous-total, sa remise et son total côté serveur, déduit le stock des lots et crée une recette unique. Les paiements sont plafonnés au total de la vente. L'annulation n'est possible qu'avant tout paiement : elle restaure le stock, supprime la recette et conserve l'historique des mouvements.
 
+### RG13 — Plan schématique et relief indicatif
+
+Le plan n'utilise pas de contour géographique, faute de relevé fiable. Les parcelles sont disposées proportionnellement à leur surface dans un cadre schématique. Le relief 3D est un rendu CSS décoratif : il ne doit pas être interprété comme une mesure de pente ou de distance. Les dimensions `length_m` et `width_m` sont facultatives et servent uniquement à enrichir la fiche de la parcelle.
+
+### RG14 — Navigation lisible
+
+Le menu principal expose les neuf entrées les plus utilisées : tableau de bord, plan, parcelles, campagnes, activités, irrigation, agenda, stock récolté et hub. Toute fonction secondaire reste accessible en un clic depuis le hub, soit deux clics depuis une page principale. Les entrées réservées aux responsables et administrateurs (équipe, journal d'audit) ne sont affichées qu'après autorisation.
+
 ## 2.4 Besoins non fonctionnels
 
 | Réf. | Besoin | Réponse |
@@ -250,7 +264,7 @@ Une vente confirmée calcule son sous-total, sa remise et son total côté serve
 | BNF02 | Isolation | Contexte serveur + `BelongsToFarm` |
 | BNF03 | Traçabilité | Journal d'audit transversal |
 | BNF04 | Maintenabilité | Architecture MVC + services + Policies |
-| BNF05 | Testabilité | PHPUnit, SQLite en mémoire, 100 tests |
+| BNF05 | Testabilité | PHPUnit, SQLite en mémoire, 123 tests |
 | BNF06 | Performance | Cache tableau de bord, index SQL, pagination |
 | BNF07 | Robustesse | Transactions, verrous pessimistes, contraintes SQL |
 | BNF08 | Portabilité | Docker, PostgreSQL, configuration `.env` |
@@ -262,13 +276,14 @@ Une vente confirmée calcule son sous-total, sa remise et son total côté serve
 | Exigence du cahier des charges | Réalisation | Preuve |
 | --- | --- | --- |
 | Rapport technique 15–25 pages | Ce document | Sections 1 à 12 |
-| Policies Laravel | 17 Policies + trait commun | `app/Policies` |
+| Policies Laravel | 19 Policies + trait commun | `app/Policies` |
 | Journalisation | `audit_logs`, `AuditLogger`, `Auditable` | `app/Support`, `app/Models/Concerns` |
 | Administration globale | Panneau `/admin` | `app/Http/Controllers/Admin` |
-| Tests | 100 tests, 318 assertions | `php artisan test` |
+| Tests | 123 tests, 419 assertions | `php artisan test` |
 | Base de données 8–15 tables | 23 tables métier et 9 tables techniques | `database/migrations` |
 | Factories et seeders | Factories par modèle + `DatabaseSeeder` | `database/factories`, `database/seeders` |
-| Module personnel | Calendrier cultural + fiches de culture | `CropCalendarService`, `CropGuideService` |
+| Module personnel | Plan interactif des parcelles (relief indicatif) | `FarmMapService`, `/plan` |
+| Navigation | Menu réduit + hub des fonctions secondaires | `ModuleController`, `/modules` |
 | Chaîne commerciale | Lots, clients, ventes, paiements, recettes | `ProduceStockService`, `SaleService` |
 | Isolation multi-exploitations | Contexte serveur + route binding | `FarmContext`, `BelongsToFarm` |
 | API REST | Sanctum + endpoints | `routes/api.php` |
@@ -389,6 +404,7 @@ Les services portent les règles métier qui ne doivent pas être dupliquées :
 | `HarvestService` | Contrôle du délai et enregistrement |
 | `CropCalendarService` | Prévisualisation, génération, replanification |
 | `CropGuideService` | Fiche de culture et étapes |
+| `FarmMapService` | Données du plan, disposition des parcelles, alertes et légende |
 | `DashboardService` | Agrégats et cache |
 
 ### 3.3.3 Modèles
@@ -510,8 +526,10 @@ Compte utilisateur. Champs notables :
 
 Exploitation agricole.
 
-- `name`, `location`, `area_m2` ;
+- `name`, `registration_number`, `location`, `address`, `area_m2` ;
+- `latitude`, `longitude` ;
 - `manager_id` : responsable principal ;
+- `contact_name`, `contact_phone`, `contact_email`, `description` ;
 - `status` : `draft`, `active`, `inactive` ;
 - `currency` : `MGA`.
 
@@ -528,6 +546,8 @@ Rattachement d'un utilisateur à une exploitation.
 Parcelle ou unité de production.
 
 - `code`, `name`, `area_m2`, `location` ;
+- `length_m`, `width_m`, `latitude`, `longitude`, `slope` ;
+- `soil_type`, `irrigation_type`, `sun_exposure`, `notes` ;
 - `type` : `plot` ;
 - `status` : `available`, `occupied`, `resting`, `inactive` ;
 - unicité `(farm_id, code)`.
@@ -536,7 +556,8 @@ Parcelle ou unité de production.
 
 Référentiel des cultures.
 
-- `name`, `variety`, `production_unit`, `estimated_cycle_days` ;
+- `name`, `variety`, `scientific_name`, `family`, `production_unit`, `estimated_cycle_days` ;
+- `planting_density`, `average_yield_kg_m2`, `seed_rate_kg_m2`, `default_sale_price`, `description` ;
 - `category_id` ;
 - `is_active` ;
 - unicité `(farm_id, name, variety)`.
@@ -563,7 +584,10 @@ Campagne de production.
 - `production_unit_id`, `crop_id` ;
 - `name`, `start_date`, `expected_end_date`, `actual_end_date` ;
 - `reference_type` : `sowing`, `planting` ;
-- `cultivated_area_m2`, `status`, `notes`.
+- `cultivated_area_m2`, `planting_density` ;
+- `expected_yield_kg`, `actual_yield_kg`, `planned_budget` ;
+- `water_quota_m3`, `water_alert_threshold_percent`, `water_notes` ;
+- `status`, `notes`.
 
 ### `activities`
 
@@ -573,7 +597,9 @@ Activité planifiée ou réalisée.
 - `type`, `title`, `description` ;
 - `planned_date`, `performed_at`, `status` ;
 - `assigned_to`, `created_by`, `performed_by` ;
-- `estimated_cost`.
+- `duration_hours`, `workers_count`, `weather_conditions` ;
+- `overdue_notified_at`, `overdue_consequence` ;
+- `estimated_cost`, `actual_cost`.
 
 ### `inputs`
 
@@ -617,7 +643,25 @@ Lot de produits frais issu d'une récolte.
 - `harvest_id` unique, `campaign_id`, `code` ;
 - `initial_quantity`, `available_quantity`, `unit` ;
 - `quality`, `harvested_at`, `storage_location`, `status` ;
+- `qr_code_path`, `trace_token` unique pour la traçabilité publique ;
 - unicité `(farm_id, code)`.
+
+### `irrigation_events`
+
+Arrosage enregistré sur une campagne et une parcelle.
+
+- `campaign_id`, `production_unit_id` ;
+- `irrigated_at`, `duration_hours`, `volume_m3` ;
+- `method`, `source`, `notes`, `recorded_by` ;
+- contraintes de positivité sur le volume et la durée.
+
+### `production_unit_photos`
+
+Photo d'une parcelle, rattachable à une campagne ou une activité.
+
+- `production_unit_id`, `campaign_id` éventuel, `activity_id` éventuel ;
+- `photo_path`, `caption`, `taken_at`, `uploaded_by` ;
+- index `(farm_id, production_unit_id, created_at)`.
 
 ### `produce_movements`
 
@@ -688,10 +732,9 @@ Les migrations ajoutent des contraintes SQL lorsque le driver est PostgreSQL :
 - quantités de lots et de lignes de vente strictement positives ;
 - stock disponible d'un lot compris entre zéro et la quantité initiale ;
 - statuts de vente, de paiement, de lot et types de mouvement limités à une liste ;
-- montants de vente et de paiement non négatifs, paiement plafonné au total ;
-- client, lot et vente cohérents avec l'exploitation active.
+- montants de vente et de paiement non négatifs, paiement plafonné au total.
 
-Ces contraintes complètent la validation applicative et protègent contre les écritures incohérentes, y compris en cas de script ou d'import.
+Ces contraintes complètent la validation applicative et protègent contre les écritures incohérentes, y compris en cas de script ou d'import. Les services vérifient en plus que le client, les lots et la vente appartiennent à l'exploitation active.
 
 ## 4.4 Index et performance
 
@@ -859,7 +902,7 @@ Le journal enregistre la méthode HTTP, le chemin, la route, le statut et l'util
 
 ## 6.1 Parcelles et cultures
 
-Les parcelles sont les unités physiques de production. Elles portent un code unique par exploitation, une surface, un emplacement et un statut.
+Les parcelles sont les unités physiques de production. Elles portent un code unique par exploitation, une surface, un emplacement et un statut. Les dimensions `length_m` et `width_m` sont facultatives : elles enrichissent la fiche et le plan sans imposer une géométrie exacte.
 
 Les cultures sont des référentiels propres à l'exploitation. Chaque culture peut être associée à une catégorie (légumes-feuilles, légumes-fruits, racines, etc.) et à une fiche de culture.
 
@@ -874,7 +917,7 @@ Le contenu reste qualitatif : il ne remplace pas les recommandations locales.
 
 ## 6.2 Calendrier cultural
 
-Le calendrier cultural est le module personnel du projet. Il permet de générer automatiquement les activités prévues d'une campagne à partir des étapes de la culture.
+Le calendrier cultural est un module complémentaire du projet. Il permet de générer automatiquement les activités prévues d'une campagne à partir des étapes de la culture.
 
 Fonctionnement :
 
@@ -1048,6 +1091,38 @@ L'événement `StockCritical` est traité par un listener qui envoie une notific
 - un hash des filtres.
 
 `DashboardCache::forget` incrémente la version, ce qui invalide toutes les combinaisons de filtres sans parcourir le cache.
+
+## 6.13 Plan interactif et navigation
+
+Le plan interactif est accessible depuis `/plan` et constitue le module personnel de la version livrée. `FarmMapService` charge en une requête les parcelles, leurs campagnes actives, les activités planifiées, les récoltes récentes et les traitements. Il produit :
+
+- une disposition récursive proportionnelle aux surfaces, dans un cadre 100 × 62,5 ;
+- une couleur stable par culture, calculée par empreinte du nom ;
+- les alertes par parcelle : activités en retard et récolte bloquée par un délai ;
+- les prochaines activités, les récoltes récentes et la progression de campagne ;
+- les stocks d'intrants sous le seuil minimal.
+
+L'interface Blade affiche le plan en 2D. Un bouton bascule vers un relief 3D obtenu par transformation CSS (`rotateX`, `rotateZ`, ombres portées), sans dépendance JavaScript lourde. La sélection d'une parcelle ouvre son panneau de détail ; la touche `Échap` et le bouton de fermeture reviennent à la vue d'ensemble. Les parcelles restent des boutons accessibles au clavier.
+
+Le menu principal regroupe les neuf entrées les plus utilisées : tableau de bord, plan, parcelles, campagnes, activités, irrigation, agenda, stock récolté et hub. La page `/modules` regroupe les autres fonctions par domaine : pilotage, production, commercial et finances, exploitation. Les liens vers l'équipe et le journal d'audit ne sont ajoutés que si les Policies l'autorisent. Le parcours maximal est donc de deux clics pour une fonction secondaire.
+
+## 6.14 Irrigation et suivi de l'eau
+
+`IrrigationEvent` enregistre un arrosage avec sa date, son volume en mètres cubes, sa durée, sa méthode, sa source et l'utilisateur qui l'a saisi. La campagne et la parcelle doivent appartenir à l'exploitation active et la parcelle doit correspondre à celle de la campagne.
+
+`IrrigationService` produit un résumé par campagne : volume total, nombre d'arrosages, durée cumulée, densité en m³/m² et état par rapport au quota d'eau. Le quota et le seuil d'alerte (`water_alert_threshold_percent`, 80 % par défaut) sont des paramètres d'exploitation, pas des recommandations agronomiques. L'état est `ok`, `approaching` ou `exceeded`. Les écrans `/irrigation` et `/irrigation/comparaison` présentent la saisie, le journal et la comparaison entre campagnes.
+
+## 6.15 Photos de parcelles
+
+Une parcelle peut recevoir une photo principale (`production_units.photo_path`) et un historique de photos (`production_unit_photos`). Chaque photo peut être liée à une campagne et à une activité, avec une légende et une date de prise de vue. Les fichiers sont stockés sur le disque `public` et servis via le lien `storage`. Le plan interactif affiche les dernières photos et permet le téléversement ou la suppression selon les droits. Les photos restent isolées par exploitation et les campagnes liées sont validées côté serveur.
+
+## 6.16 Alertes de retard critique
+
+`Activity::isLate()` conserve la règle générale du retard. `Activity::daysLate()` et `Activity::isCriticallyLate()` ajoutent le seuil de trois jours. Une activité planifiée dont la date est dépassée de plus de trois jours déclenche une alerte critique, expose la conséquence métier (`overdue_consequence`) et l'action attendue. `overdue_notified_at` conserve la date de première notification. Le tableau de bord et la liste des activités proposent un filtre dédié.
+
+## 6.17 Traçabilité publique par QR code
+
+`QrCodeService` génère un QR code réellement scannable avec `bacon/bacon-qr-code` et le rendu GD (repli SVG si GD est indisponible). Chaque lot possède un `trace_token` opaque et un fichier `qr_code_path`. Le QR pointe vers `/traceabilite/{token}`, accessible sans authentification et rendu par un layout public dédié. La page présente la parcelle, la campagne, la culture, les activités, les traitements et la récolte. Le contenu est déclaratif et ne constitue pas une certification officielle.
 
 ---
 
@@ -1256,7 +1331,9 @@ tests/
     DashboardCounterTest.php
     EnumOptionsRenderingTest.php
     FarmIsolationTest.php
+    FarmMapTest.php
     FinanceAuthorizationTest.php
+    ModuleNavigationTest.php
     NotificationFarmScopeTest.php
     PasswordHashingTest.php
     PolicyAuthorizationTest.php
@@ -1281,6 +1358,11 @@ tests/
 | Calendrier | `CalendarTest`, `CalendarGenerationTest` |
 | Cultures et ressources | `CropCatalogTest`, `ResourceCenterTest` |
 | Tableau de bord | `DashboardCounterTest`, `DashboardCacheTest` |
+| Plan et navigation | `FarmMapTest`, `ModuleNavigationTest` |
+| Irrigation | `IrrigationTest` |
+| Photos de parcelles | `ProductionUnitPhotoTest` |
+| Alertes de retard critique | `OverdueActivityAlertTest` |
+| Traçabilité QR | `TraceabilityQrTest` |
 | Audit | `AuditLogTest` |
 | Administration | `AdminPanelTest` |
 | API | `ApiAuthTest`, `ApiCampaignsTest`, `ApiActivitiesTest` |
@@ -1298,8 +1380,8 @@ php artisan test --compact
 Résultat :
 
 ```text
-Tests:    100 passed (318 assertions)
-Duration: 17.81s
+Tests:    123 passed (419 assertions)
+Duration: 15.02s
 ```
 
 Les tests couvrent notamment :
@@ -1317,6 +1399,9 @@ Les tests couvrent notamment :
 - la création automatique du lot à la récolte ;
 - la vente, les paiements partiels et l'annulation avec restitution du stock ;
 - le refus d'une vente supérieure au stock et d'un lot d'une autre exploitation ;
+- le rendu du plan, ses alertes et l'isolation des parcelles ;
+- l'enregistrement des dimensions facultatives d'une parcelle ;
+- le hub de modules et le masquage des fonctions réservées aux agents ;
 - l'authentification API ;
 - le hachage des mots de passe.
 
@@ -1487,18 +1572,24 @@ La version actuelle ne fournit pas d'intégration de supervision. Il est recomma
 La version livrée apporte :
 
 - une architecture MVC claire avec services métier ;
-- un contrôle d'accès centralisé par 17 Policies ;
+- un contrôle d'accès centralisé par 19 Policies ;
 - un rôle global d'administrateur de plateforme ;
 - un journal d'audit transversal ;
 - une isolation multi-exploitations à trois niveaux ;
+- un plan interactif des parcelles, avec relief CSS indicatif, photos et alertes ;
+- l'irrigation, les quotas d'eau et la comparaison entre campagnes ;
+- les photos de parcelles et leur rattachement contrôlé ;
+- les alertes critiques de retard au-delà de trois jours ;
+- la traçabilité publique par QR code ;
 - un module de calendrier cultural idempotent ;
 - des fiches de culture ;
+- une navigation principale lisible et un hub pour les fonctions secondaires ;
 - une gestion de stock robuste ;
 - un blocage serveur des récoltes trop précoces ;
 - une chaîne commerciale complète : lots, clients, ventes, paiements et recettes ;
 - un tableau de bord mis en cache ;
 - une API REST sécurisée ;
-- 100 tests automatisés réussis ;
+- 123 tests automatisés réussis ;
 - une documentation technique et un README à jour.
 
 ## 11.2 Apports techniques
@@ -1522,6 +1613,7 @@ Le projet démontre la maîtrise de :
 - La couverture de tests peut être améliorée sur les cas limites.
 - La rétention de l'audit n'est pas automatisée.
 - L'interface n'a pas de tests end-to-end.
+- Le plan est schématique : il n'embarque ni contours SIG, ni fond cartographique, ni calcul de pente.
 - La supervision de production est absente.
 - La documentation utilisateur est synthétique.
 - L'API ne couvre qu'une partie du domaine.
@@ -1681,6 +1773,7 @@ docker compose up -d
 | Lot de récolte | Quantité de produits frais issue d'une récolte, suivie en stock |
 | Parcelle | Unité physique de production |
 | Paiement | Encaissement partiel ou total rattaché à une vente |
+| Plan interactif | Vue schématique des parcelles proportionnelle aux surfaces, avec relief indicatif |
 | Policy | Classe Laravel centralisant une décision d'autorisation |
 | Rattachement | Lien entre un utilisateur et une exploitation, avec un rôle |
 | Tenant | Exploitation isolée dans un contexte multi-exploitations |
