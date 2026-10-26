@@ -36,6 +36,13 @@ class CampaignFactory extends Factory
             'expected_end_date' => (clone $start)->modify('+90 days')->format('Y-m-d'),
             'actual_end_date' => null,
             'cultivated_area_m2' => fake()->randomFloat(2, 20, 400),
+            'planting_density' => null,
+            'expected_yield_kg' => null,
+            'actual_yield_kg' => null,
+            'planned_budget' => null,
+            'water_quota_m3' => null,
+            'water_alert_threshold_percent' => 80,
+            'water_notes' => null,
             'status' => CampaignStatus::Ongoing->value,
             'notes' => null,
         ];

@@ -34,5 +34,27 @@
                         :options="$statuses->mapWithKeys(fn ($status) => [$status->value => $status->label()])" />
     </div>
 
+    <div class="grid gap-4 sm:grid-cols-3">
+        <x-field name="planting_density" label="Densité de plantation (facultatif)" type="number" step="0.01" min="0"
+                 value="{{ old('planting_density', $campaign->planting_density ?? null) }}" />
+        <x-field name="expected_yield_kg" label="Rendement attendu (kg, facultatif)" type="number" step="0.001" min="0"
+                 value="{{ old('expected_yield_kg', $campaign->expected_yield_kg ?? null) }}" />
+        <x-field name="actual_yield_kg" label="Rendement réel (kg, facultatif)" type="number" step="0.001" min="0"
+                 value="{{ old('actual_yield_kg', $campaign->actual_yield_kg ?? null) }}" />
+    </div>
+
+    <div class="grid gap-4 sm:grid-cols-4">
+        <x-field name="planned_budget" label="Budget prévisionnel (Ar, facultatif)" type="number" step="0.01" min="0"
+                 value="{{ old('planned_budget', $campaign->planned_budget ?? null) }}" />
+        <x-field name="water_quota_m3" label="Quota eau (m³, facultatif)" type="number" step="0.001" min="0"
+                 value="{{ old('water_quota_m3', $campaign->water_quota_m3 ?? null) }}"
+                 hint="Paramètre d'exploitation, pas une recommandation." />
+        <x-field name="water_alert_threshold_percent" label="Seuil d'alerte eau (%)" type="number" step="0.01" min="0" max="100"
+                 value="{{ old('water_alert_threshold_percent', $campaign->water_alert_threshold_percent ?? 80) }}" />
+        <div></div>
+    </div>
+
+    <x-textarea-field name="water_notes" label="Notes eau (facultatif)" rows="2" value="{{ old('water_notes', $campaign->water_notes ?? null) }}" />
+
     <x-textarea-field name="notes" label="Notes" rows="3" value="{{ old('notes', $campaign->notes ?? null) }}" />
 </div>

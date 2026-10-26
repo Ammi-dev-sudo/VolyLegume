@@ -30,6 +30,9 @@ class Campaign extends Model
         'expected_yield_kg',
         'actual_yield_kg',
         'planned_budget',
+        'water_quota_m3',
+        'water_alert_threshold_percent',
+        'water_notes',
         'status',
         'notes',
     ];
@@ -45,6 +48,8 @@ class Campaign extends Model
             'expected_yield_kg' => 'decimal:3',
             'actual_yield_kg' => 'decimal:3',
             'planned_budget' => 'decimal:2',
+            'water_quota_m3' => 'decimal:3',
+            'water_alert_threshold_percent' => 'decimal:2',
             'status' => CampaignStatus::class,
             'reference_type' => ReferenceType::class,
         ];
@@ -98,6 +103,11 @@ class Campaign extends Model
     public function revenues(): HasMany
     {
         return $this->hasMany(Revenue::class);
+    }
+
+    public function irrigationEvents(): HasMany
+    {
+        return $this->hasMany(IrrigationEvent::class);
     }
 
     public function scopeActive(Builder $query): Builder

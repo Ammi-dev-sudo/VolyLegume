@@ -10,6 +10,7 @@ use App\Models\Crop;
 use App\Models\ProductionUnit;
 use App\Services\CropCalendarService;
 use App\Services\DashboardService;
+use App\Services\IrrigationService;
 use App\Support\DashboardCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -60,7 +61,7 @@ class CampaignController extends Controller
         return redirect()->route('campaigns.index')->with('status', 'Campagne créée.');
     }
 
-    public function show(Campaign $campaign, CropCalendarService $calendar, DashboardService $dashboard): View
+    public function show(Campaign $campaign, CropCalendarService $calendar, DashboardService $dashboard, IrrigationService $irrigation): View
     {
         $campaign->load(['productionUnit', 'crop']);
 
@@ -72,6 +73,7 @@ class CampaignController extends Controller
             'calendarPreview' => $calendar->preview($campaign),
             'metrics' => $dashboard->forFarm($this->farm(), ['campaign_id' => $campaign->id]),
             'latestHarvestBound' => $campaign->treatments()->max('minimum_harvest_at'),
+            'irrigationSummary' => $irrigation->summaryForCampaign($campaign),
         ]);
     }
 
@@ -138,6 +140,13 @@ class CampaignController extends Controller
             'expected_end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'actual_end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'cultivated_area_m2' => ['required', 'numeric', 'gt:0'],
+            'planting_density' => ['nullable', 'numeric', 'gte:0'],
+            'expected_yield_kg' => ['nullable', 'numeric', 'gte:0'],
+            'actual_yield_kg' => ['nullable', 'numeric', 'gte:0'],
+            'planned_budget' => ['nullable', 'numeric', 'gte:0'],
+            'water_quota_m3' => ['nullable', 'numeric', 'gte:0'],
+            'water_alert_threshold_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'water_notes' => ['nullable', 'string'],
             'status' => ['required', Rule::enum(CampaignStatus::class)],
             'notes' => ['nullable', 'string'],
         ]);

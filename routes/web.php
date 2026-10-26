@@ -18,20 +18,27 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FarmController;
+use App\Http\Controllers\FarmMapController;
 use App\Http\Controllers\HarvestController;
 use App\Http\Controllers\InputController;
+use App\Http\Controllers\IrrigationController;
+use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProduceLotController;
 use App\Http\Controllers\ProductionUnitController;
+use App\Http\Controllers\ProductionUnitPhotoController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\RevenueController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\TeamController;
+use App\Http\Controllers\TraceabilityController;
 use App\Http\Controllers\TreatmentController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
+
+Route::get('traceabilite/{token}', [TraceabilityController::class, 'show'])->name('traceability.show');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'create'])->name('login');
@@ -127,6 +134,11 @@ Route::middleware(['auth', 'farm'])->group(function () {
     Route::put('activites/{activity}', [ActivityController::class, 'update'])->name('activities.update');
     Route::delete('activites/{activity}', [ActivityController::class, 'destroy'])->name('activities.destroy');
     Route::post('activites/{activity}/realiser', [ActivityController::class, 'complete'])->name('activities.complete');
+
+    Route::get('irrigation', [IrrigationController::class, 'index'])->name('irrigation.index');
+    Route::get('irrigation/creer', [IrrigationController::class, 'create'])->name('irrigation.create');
+    Route::post('irrigation', [IrrigationController::class, 'store'])->name('irrigation.store');
+    Route::get('irrigation/comparaison', [IrrigationController::class, 'comparison'])->name('irrigation.comparison');
 
     Route::get('intrants', [InputController::class, 'index'])->name('inputs.index');
     Route::get('intrants/creer', [InputController::class, 'create'])->name('inputs.create');

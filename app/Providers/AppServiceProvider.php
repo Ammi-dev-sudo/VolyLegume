@@ -3,8 +3,16 @@
 namespace App\Providers;
 
 use App\Enums\FarmRole;
+use App\Models\IrrigationEvent;
+use App\Models\ProduceLot;
+use App\Models\ProductionUnit;
+use App\Models\ProductionUnitPhoto;
 use App\Models\User;
 use App\Notifications\Channels\FarmDatabaseChannel;
+use App\Policies\IrrigationEventPolicy;
+use App\Policies\ProduceLotPolicy;
+use App\Policies\ProductionUnitPhotoPolicy;
+use App\Policies\ProductionUnitPolicy;
 use App\Support\FarmContext;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -30,6 +38,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(ProductionUnit::class, ProductionUnitPolicy::class);
+        Gate::policy(ProduceLot::class, ProduceLotPolicy::class);
+        Gate::policy(IrrigationEvent::class, IrrigationEventPolicy::class);
+        Gate::policy(ProductionUnitPhoto::class, ProductionUnitPhotoPolicy::class);
+
         Notification::resolved(fn (ChannelManager $service) => $service->extend(
             'farm',
             fn () => new FarmDatabaseChannel,

@@ -44,7 +44,7 @@
         @endif
     </div>
 
-    <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <x-card>
             <p class="text-xs uppercase text-slate-500">Dépenses</p>
             <p class="mt-1 text-lg font-semibold">{{ number_format((float) $metrics['expenses'], 0, ',', ' ') }} Ar</p>
@@ -70,6 +70,16 @@
             <p class="text-xs uppercase text-slate-500">Récolte cumulée</p>
             <p class="mt-1 text-lg font-semibold">{{ number_format((float) $metrics['harvested_quantity'], 1, ',', ' ') }}</p>
             <p class="text-xs text-slate-500">{{ $campaign->crop?->production_unit }}</p>
+        </x-card>
+        <x-card>
+            <p class="text-xs uppercase text-slate-500">Eau utilisée</p>
+            <p class="mt-1 text-lg font-semibold">{{ number_format((float) $irrigationSummary['total_volume_m3'], 3, ',', ' ') }} m³</p>
+            <p class="text-xs text-slate-500">{{ $irrigationSummary['events_count'] }} arrosage(s) · {{ $irrigationSummary['volume_per_m2'] !== null ? number_format((float) $irrigationSummary['volume_per_m2'], 4, ',', ' ').' m³/m²' : '—' }}</p>
+            @if ($irrigationSummary['quota_m3'] !== null)
+                <p class="mt-1 text-xs {{ $irrigationSummary['status'] === 'exceeded' ? 'text-red-600' : ($irrigationSummary['status'] === 'approaching' ? 'text-amber-700' : 'text-emerald-700') }}">
+                    Quota {{ number_format((float) $irrigationSummary['quota_m3'], 3, ',', ' ') }} m³ · {{ $irrigationSummary['status'] === 'exceeded' ? 'dépassement' : ($irrigationSummary['status'] === 'approaching' ? 'approche du seuil' : 'OK') }}
+                </p>
+            @endif
         </x-card>
     </div>
 
