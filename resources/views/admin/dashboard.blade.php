@@ -26,6 +26,40 @@
         @endforeach
     </div>
 
+    <x-card class="mt-6" title="Supervision opérationnelle" subtitle="Base, file d’attente, sauvegardes et stockage — état au {{ \Illuminate\Support\Carbon::parse($health['checked_at'])->format('d/m/Y H:i') }}.">
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+            @php
+                $healthStyles = [
+                    'ok' => 'bg-emerald-100 text-emerald-800 ring-emerald-200',
+                    'degraded' => 'bg-amber-100 text-amber-800 ring-amber-200',
+                    'down' => 'bg-red-100 text-red-800 ring-red-200',
+                ];
+                $healthLabels = ['ok' => 'Opérationnel', 'degraded' => 'Dégradé', 'down' => 'Indisponible'];
+            @endphp
+            <span class="rounded-full px-3 py-1 text-xs font-semibold ring-1 {{ $healthStyles[$health['status']] ?? $healthStyles['degraded'] }}">
+                {{ $healthLabels[$health['status']] ?? $health['status'] }}
+            </span>
+            <a href="{{ route('health') }}" target="_blank" class="text-xs text-emerald-700 hover:underline">Vue JSON /health</a>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            @foreach ($health['checks'] as $name => $check)
+                <div class="rounded-lg border border-slate-200 p-3">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">{{ ucfirst($name) }}</p>
+                    <p class="mt-0.5 text-sm font-semibold {{ ($check['status'] ?? '') === 'ok' ? 'text-emerald-700' : (($check['status'] ?? '') === 'down' ? 'text-red-600' : 'text-amber-600') }}">
+                        {{ $healthLabels[$check['status'] ?? ''] ?? ($check['status'] ?? '—') }}
+                    </p>
+                    <p class="mt-1 text-xs text-slate-500">{{ $check['message'] ?? '' }}</p>
+                    @if (($name === 'queue') && isset($check['pending'], $check['failed']))
+                        <p class="mt-1 text-xs text-slate-400">{{ $check['pending'] }} en attente · {{ $check['failed'] }} en échec</p>
+                    @endif
+                    @if (($name === 'backup') && isset($check['age_hours']))
+                        <p class="mt-1 text-xs text-slate-400">{{ $check['age_hours'] }} h depuis la dernière sauvegarde</p>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    </x-card>
+
     <div class="mt-6 grid gap-4 lg:grid-cols-3">
         <x-card class="lg:col-span-2">
             <div class="mb-3 flex items-center justify-between">

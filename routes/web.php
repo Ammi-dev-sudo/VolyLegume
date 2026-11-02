@@ -17,16 +17,20 @@ use App\Http\Controllers\CropController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FarmController;
 use App\Http\Controllers\FarmMapController;
 use App\Http\Controllers\HarvestController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\InputController;
 use App\Http\Controllers\IrrigationController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OfflineSyncController;
 use App\Http\Controllers\ProduceLotController;
 use App\Http\Controllers\ProductionUnitController;
 use App\Http\Controllers\ProductionUnitPhotoController;
+use App\Http\Controllers\ProfitabilityController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\RevenueController;
 use App\Http\Controllers\SaleController;
@@ -37,6 +41,8 @@ use App\Http\Controllers\TreatmentController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
+
+Route::get('health', HealthController::class)->name('health');
 
 Route::get('traceabilite/{token}', [TraceabilityController::class, 'show'])->name('traceability.show');
 
@@ -88,6 +94,16 @@ Route::middleware(['auth', 'farm'])->group(function () {
 
     Route::get('agenda', [CalendarController::class, 'index'])->name('calendar.index');
 
+    Route::get('rentabilite', [ProfitabilityController::class, 'index'])->name('profitability.index');
+    Route::get('rentabilite/export.csv', [ProfitabilityController::class, 'export'])->name('profitability.export');
+    Route::get('rentabilite/impression', [ProfitabilityController::class, 'print'])->name('profitability.print');
+
+    Route::get('exports/campagnes.csv', [ExportController::class, 'campaigns'])->name('exports.campaigns');
+    Route::get('exports/stocks.csv', [ExportController::class, 'stock'])->name('exports.stock');
+    Route::get('exports/traitements.csv', [ExportController::class, 'treatments'])->name('exports.treatments');
+    Route::get('exports/ventes.csv', [ExportController::class, 'sales'])->name('exports.sales');
+    Route::get('exports/finances.csv', [ExportController::class, 'finances'])->name('exports.finances');
+
     Route::get('journal', [AuditLogController::class, 'index'])->name('audit.index');
 
     Route::get('equipe', [TeamController::class, 'index'])->name('team.index');
@@ -130,6 +146,9 @@ Route::middleware(['auth', 'farm'])->group(function () {
     Route::get('campagnes/{campaign}/calendrier', [CalendarGenerationController::class, 'preview'])->name('campaigns.calendar');
     Route::post('campagnes/{campaign}/calendrier/generer', [CalendarGenerationController::class, 'generate'])->name('campaigns.calendar.generate');
     Route::post('campagnes/{campaign}/calendrier/replanifier', [CalendarGenerationController::class, 'replan'])->name('campaigns.calendar.replan');
+
+    Route::post('hors-ligne/activites', [OfflineSyncController::class, 'activity'])->name('offline.activities');
+    Route::post('hors-ligne/recoltes', [OfflineSyncController::class, 'harvest'])->name('offline.harvests');
 
     Route::get('activites', [ActivityController::class, 'index'])->name('activities.index');
     Route::get('activites/creer', [ActivityController::class, 'create'])->name('activities.create');

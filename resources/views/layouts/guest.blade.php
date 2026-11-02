@@ -20,13 +20,17 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#022c22">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>{{ config('app.name', 'VolyLegume') }} — @yield('title', 'Connexion')</title>
+    <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('images/apple-touch-icon.png') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="relative min-h-screen overflow-x-hidden bg-emerald-950 text-slate-800">
+<body class="guest-body relative min-h-screen overflow-x-hidden bg-emerald-950 text-slate-800">
     <div aria-hidden="true" class="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-800"></div>
     <div aria-hidden="true" class="pointer-events-none absolute inset-0 bg-grid opacity-40"></div>
     <div aria-hidden="true" class="pointer-events-none absolute -left-24 top-10 h-[26rem] w-[26rem] rounded-full bg-emerald-400/30 blur-3xl animate-blob"></div>
@@ -35,7 +39,7 @@
 
     <div class="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-8 sm:px-6">
         <div class="grid w-full items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
-            <section class="hidden text-white lg:block">
+            <section class="guest-story hidden text-white lg:block">
                 <a href="{{ url('/') }}" class="group inline-flex items-center gap-4">
                     <span class="logo-halo animate-bounce-in flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl bg-white p-2 shadow-2xl shadow-emerald-950/40 ring-1 ring-white/40 transition duration-500 group-hover:rotate-3 group-hover:scale-105">
                         <img src="{{ asset('images/logo.png') }}" alt="Logo VolyLegume aux légumes frais" class="h-full w-full object-contain">
@@ -88,7 +92,7 @@
                 </div>
             </section>
 
-            <div class="animate-scale-in w-full rounded-3xl bg-white/95 p-6 shadow-2xl shadow-emerald-950/40 ring-1 ring-white/50 backdrop-blur sm:p-8">
+            <div class="guest-form-card animate-scale-in w-full rounded-3xl bg-white/95 p-6 shadow-2xl shadow-emerald-950/40 ring-1 ring-white/50 backdrop-blur sm:p-8">
                 <div class="mb-6 flex items-center gap-3 lg:hidden">
                     <span class="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-emerald-50 p-1.5 ring-1 ring-emerald-100">
                         <img src="{{ asset('images/logo.png') }}" alt="Logo VolyLegume" class="h-full w-full object-contain">

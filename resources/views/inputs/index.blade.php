@@ -11,6 +11,8 @@
             </p>
         </div>
         <div class="flex items-center gap-3">
+            <a href="{{ route('exports.stock', request()->query()) }}"
+               class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Exporter CSV</a>
             <a href="{{ route('stock-movements.create') }}"
                class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Mouvement de stock</a>
             @can('manage-referentials')

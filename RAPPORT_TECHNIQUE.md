@@ -4,19 +4,21 @@
 
 **Application web de gestion d'exploitations maraîchères**
 
-Projet fil rouge — BUT RGI / L3 SIO — ESMIA
+Projet individuel — L3 SIO — ESMIA
 
-Version 1.0 — 23 octobre 2026
+**Étudiant : ANDRIAMANANA Ammi Joda — SE20240348**
+
+Version 2.0 — 2 novembre 2026
 
 ---
 
 ## Résumé
 
-VolyLegume est une application web de gestion d'exploitations maraîchères conçue pour le contexte malgache. Elle permet à une exploitation de piloter ses parcelles, ses cultures, ses campagnes, son calendrier cultural, ses activités, ses intrants et stocks, ses traitements phytosanitaires, ses récoltes, ses lots de produits frais, ses clients, ses ventes, ses paiements et ses finances simplifiées. L'application est développée avec Laravel 13 et PHP 8.3, rendue côté serveur avec Blade et Tailwind CSS, et exposée partiellement via une API REST sécurisée par Sanctum.
+VolyLegume est une application web de gestion d'exploitations maraîchères conçue pour le contexte malgache. Elle permet à une exploitation de piloter ses parcelles, ses cultures, ses campagnes, son calendrier cultural, ses activités, ses intrants et stocks, ses traitements phytosanitaires, ses récoltes, ses lots de produits frais, ses clients, ses ventes, ses paiements et ses finances simplifiées. L'application est développée avec Laravel 13 et PHP 8.3+ (PHP 8.5 en développement), rendue côté serveur avec Blade et Tailwind CSS, et exposée partiellement via une API REST sécurisée par Sanctum.
 
 Le présent rapport documente l'architecture, les choix techniques, les règles métier, le dispositif de sécurité, le journal d'audit, les tests et les conditions d'exploitation de la version livrée. Il met également en évidence la conformité au cahier des charges, les écarts résiduels et les perspectives d'évolution.
 
-La version décrite est couverte par **123 tests automatisés et 419 assertions**, tous réussis. Elle comprend un contrôle d'accès centralisé par Policies Laravel, un journal d'audit transversal, un panneau d'administration de plateforme, un plan interactif des parcelles, un module de calendrier cultural, un module de fiches de culture, un suivi d'irrigation avec quotas d'eau, un historique photo des parcelles, des alertes de retard critique au-delà de 3 jours, la traçabilité publique par QR code et une chaîne commerciale complète : lot de récolte, stock de produits frais, clients, ventes multi-lignes, paiements partiels, recettes et annulation avec restitution du stock. La navigation principale reste lisible tout en donnant accès direct aux fonctions quotidiennes ; les fonctions secondaires sont regroupées dans un hub dédié, accessible en un clic.
+La version décrite est couverte par **152 tests automatisés et 544 assertions**, tous réussis. Elle comprend un contrôle d'accès centralisé par Policies Laravel, un journal d'audit transversal avec purge planifiée, un panneau d'administration de plateforme, un plan interactif des parcelles, un module de calendrier cultural, un module de fiches de culture, un suivi d'irrigation avec quotas d'eau, un historique photo des parcelles, des alertes de retard critique au-delà de 3 jours, la traçabilité publique par QR code, une chaîne commerciale complète : lot de récolte, stock de produits frais, clients, ventes multi-lignes, paiements partiels, recettes et annulation avec restitution du stock, une analyse de rentabilité par campagne, culture et parcelle, des exports CSV et des états imprimables, une supervision opérationnelle exposée par `/health`, ainsi qu'une sauvegarde et une restauration vérifiables de la base et des fichiers publics. L'application est installable comme PWA et permet de conserver localement les activités et récoltes saisies hors connexion, puis de les synchroniser sans doublon. La navigation principale reste lisible tout en donnant accès direct aux fonctions quotidiennes ; les fonctions secondaires sont regroupées dans un hub dédié, accessible en un clic.
 
 ---
 
@@ -264,7 +266,7 @@ Le menu principal expose les neuf entrées les plus utilisées : tableau de bord
 | BNF02 | Isolation | Contexte serveur + `BelongsToFarm` |
 | BNF03 | Traçabilité | Journal d'audit transversal |
 | BNF04 | Maintenabilité | Architecture MVC + services + Policies |
-| BNF05 | Testabilité | PHPUnit, SQLite en mémoire, 123 tests |
+| BNF05 | Testabilité | PHPUnit, SQLite et PostgreSQL, 152 tests |
 | BNF06 | Performance | Cache tableau de bord, index SQL, pagination |
 | BNF07 | Robustesse | Transactions, verrous pessimistes, contraintes SQL |
 | BNF08 | Portabilité | Docker, PostgreSQL, configuration `.env` |
@@ -279,10 +281,10 @@ Le menu principal expose les neuf entrées les plus utilisées : tableau de bord
 | Policies Laravel | 19 Policies + trait commun | `app/Policies` |
 | Journalisation | `audit_logs`, `AuditLogger`, `Auditable` | `app/Support`, `app/Models/Concerns` |
 | Administration globale | Panneau `/admin` | `app/Http/Controllers/Admin` |
-| Tests | 123 tests, 419 assertions | `php artisan test` |
-| Base de données 8–15 tables | 23 tables métier et 9 tables techniques | `database/migrations` |
+| Tests | 152 tests, 544 assertions | `php artisan test` |
+| Base de données 8–15 tables (indicatif) | 26 tables métier et 9 tables techniques, périmètre détaillé assumé | `database/migrations` |
 | Factories et seeders | Factories par modèle + `DatabaseSeeder` | `database/factories`, `database/seeders` |
-| Module personnel | Plan interactif des parcelles (relief indicatif) | `FarmMapService`, `/plan` |
+| Module personnel | Calendrier cultural paramétrable et suivi des retards | `CropCalendarService`, `/agenda` |
 | Navigation | Menu réduit + hub des fonctions secondaires | `ModuleController`, `/modules` |
 | Chaîne commerciale | Lots, clients, ventes, paiements, recettes | `ProduceStockService`, `SaleService` |
 | Isolation multi-exploitations | Contexte serveur + route binding | `FarmContext`, `BelongsToFarm` |
@@ -294,10 +296,11 @@ Les écarts identifiés sont les suivants :
 
 - l'historique Git reste limité et doit être enrichi par des commits explicites ;
 - la couverture de tests peut encore être étendue aux cas limites de l'API ;
-- la rétention du journal d'audit n'est pas automatisée ;
+- la purge du journal d'audit est planifiée, mais dépend du cron `schedule:run` en production ;
 - l'envoi de courriels réels n'est pas configuré ;
 - la documentation utilisateur reste synthétique ;
-- la supervision de production (Sentry, métriques) n'est pas installée.
+- la supervision se limite aux contrôles internes de `/health` : aucune intégration Sentry ni métriques externes n'est installée ;
+- la file hors ligne couvre les activités et les récoltes, sans synchronisation en arrière-plan native.
 
 Ces écarts ne remettent pas en cause les fonctionnalités principales, mais ils constituent des axes d'amélioration.
 
@@ -311,91 +314,40 @@ L'application suit l'architecture MVC de Laravel, complétée par des services m
 
 ```text
 Navigateur / client API
-        |
-        v
-+-------------------------------+
-| Routes web et API             |
-| Middleware (auth, farm, admin)|
-+-------------------------------+
-        |
-        v
-+-------------------------------+
-| Contrôleurs                   |
-| - validation                  |
-| - autorisation (Policies)     |
-| - orchestration               |
-+-------------------------------+
-        |
-        v
-+-------------------------------+
-| Services métier               |
-| Stock, Traitement, Récolte,   |
-| Calendrier, Dashboard         |
-+-------------------------------+
-        |
-        v
-+-------------------------------+
-| Modèles Eloquent              |
-| Relations, scopes, casts      |
-+-------------------------------+
-        |
-        v
-+-------------------------------+
-| PostgreSQL / SQLite (tests)   |
-+-------------------------------+
+        ↓
+Routes web et API → middleware (auth, farm, admin)
+        ↓
+Contrôleurs → validation, autorisation, orchestration
+        ↓
+Services métier → règles, transactions, verrous
+        ↓
+Modèles Eloquent → relations, scopes, casts
+        ↓
+PostgreSQL (SQLite pour les tests)
 ```
 
-Le journal d'audit est un composant transversal : il est déclenché par les événements Eloquent et par les services, et écrit dans la table `audit_logs`.
+Le journal d'audit est transversal : il est déclenché par les événements Eloquent et par les services, puis écrit dans `audit_logs`.
 
 ## 3.2 Organisation des dossiers
 
-```text
-app/
-  Console/Commands/       Commande de génération de données
-  Enums/                  Énumérations métier
-  Events/                 Événements de domaine
-  Exceptions/             Exceptions métier
-  Http/
-    Controllers/          Contrôleurs web
-    Controllers/Admin/    Administration plateforme
-    Controllers/Api/      API REST
-    Middleware/           Contexte, isolation, administration
-    Requests/             Validation des activités
-    Resources/            Sérialisation API
-  Jobs/                   Traitements différés
-  Listeners/              Réactions aux événements
-  Models/                 Modèles Eloquent
-  Models/Concerns/        Traits Auditable et BelongsToFarm
-  Notifications/          Notifications et canal farm
-  Policies/               Autorisations
-  Providers/              Configuration applicative
-  Services/               Logique métier
-  Support/                Contexte, cache, audit
-database/
-  factories/              Fabriques de données
-  migrations/             Schéma
-  seeders/                Données de démonstration
-resources/views/          Interface Blade
-routes/                   web.php, api.php, console.php
-tests/                    Tests unitaires et fonctionnels
-```
+- `app/Http` : contrôleurs web, API et administration, middleware, requêtes et ressources ;
+- `app/Models` : modèles Eloquent, relations, scopes et traits `Auditable` / `BelongsToFarm` ;
+- `app/Services` : règles métier réutilisables ;
+- `app/Policies` : décisions d'autorisation centralisées ;
+- `app/Events`, `Listeners`, `Jobs`, `Notifications` : événements, réactions différées et alertes ;
+- `app/Support` : contexte d'exploitation, cache, audit, exports ;
+- `database` : migrations, factories et seeders ;
+- `resources/views` : interface Blade et Tailwind ;
+- `routes` : routes web, API et console ;
+- `tests` : tests unitaires et fonctionnels.
 
 ## 3.3 Rôle des couches
 
-### 3.3.1 Contrôleurs
+### Contrôleurs
 
-Les contrôleurs restent minces. Ils :
+Les contrôleurs restent minces : ils valident les entrées, autorisent l'action via les Policies, délèguent les opérations complexes aux services, puis retournent une vue ou une redirection. L'administration vérifie le rôle de plateforme avant toute action.
 
-- valident les entrées ;
-- autorisent l'action via `Gate::authorize` ou les Policies ;
-- délèguent les opérations complexes aux services ;
-- retournent une vue ou une redirection.
-
-Les contrôleurs d'administration vérifient le rôle de plateforme dans leur constructeur via `Gate::authorize('manage', User::class)`.
-
-### 3.3.2 Services
-
-Les services portent les règles métier qui ne doivent pas être dupliquées :
+### Services
 
 | Service | Responsabilité |
 | --- | --- |
@@ -404,74 +356,29 @@ Les services portent les règles métier qui ne doivent pas être dupliquées :
 | `HarvestService` | Contrôle du délai et enregistrement |
 | `CropCalendarService` | Prévisualisation, génération, replanification |
 | `CropGuideService` | Fiche de culture et étapes |
-| `FarmMapService` | Données du plan, disposition des parcelles, alertes et légende |
+| `FarmMapService` | Plan, disposition des parcelles, alertes et légende |
 | `DashboardService` | Agrégats et cache |
+| `BackupService` | Dump, archive des fichiers et restauration vérifiée |
+| `ProfitabilityService` | Marge, rendement et eau par campagne, culture et parcelle |
+| `HealthService` | Contrôles base, file, sauvegarde et stockage |
 
-### 3.3.3 Modèles
+### Modèles et Policies
 
-Les modèles Eloquent portent :
+Les modèles portent les relations, casts, scopes (`forFarm`, `overdue`, etc.), les traits transversaux et les contraintes applicatives. Les Policies centralisent les autorisations ; le trait `ChecksFarmRole` fournit le rôle courant, l'appartenance à l'exploitation et les capacités de gestion.
 
-- les relations ;
-- les casts ;
-- les scopes (`forFarm`, `overdue`, etc.) ;
-- les traits transversaux (`Auditable`, `BelongsToFarm`) ;
-- les contraintes de cohérence applicatives.
+## 3.4 Flux d'une requête
 
-### 3.3.4 Policies
+**Web — création d'une dépense :** session authentifiée → `ResolveFarmContext` → `RequireActiveFarm` → validation → `ExpensePolicy::create` → insertion → `Auditable` / `AuditLogger` → invalidation du cache → redirection.
 
-Les Policies centralisent les décisions d'autorisation. Le trait `ChecksFarmRole` fournit les primitives :
+**API :** token Bearer → `auth:sanctum` → `ResolveApiFarmContext` avec `X-Farm-Id` → vérification du rattachement → `resolveRouteBinding` limité à l'exploitation → réponse JSON.
 
-- rôle courant ;
-- appartenance à l'exploitation ;
-- capacité de gestion des référentiels ;
-- capacité de gestion des finances ;
-- appartenance d'un modèle à l'exploitation active.
+## 3.5 Choix techniques
 
-## 3.4 Flux d'une requête web
-
-Prenons l'exemple de la création d'une dépense.
-
-1. Le navigateur envoie `POST /finances/depenses`.
-2. Le middleware `auth` vérifie la session.
-3. `ResolveFarmContext` lit les rattachements actifs et choisit l'exploitation active.
-4. `RequireActiveFarm` vérifie qu'une exploitation est disponible.
-5. Le contrôleur valide la requête.
-6. `ExpensePolicy::create` vérifie que l'utilisateur peut gérer les finances.
-7. `Expense::create` insère la ligne.
-8. Le trait `Auditable` déclenche `AuditLogger`.
-9. `DashboardCache` est invalidé.
-10. Une redirection est renvoyée avec un message de succès.
-
-## 3.5 Flux d'une requête API
-
-1. Le client envoie un token Bearer.
-2. `auth:sanctum` authentifie l'utilisateur.
-3. `ResolveApiFarmContext` lit l'en-tête `X-Farm-Id` et vérifie le rattachement.
-4. `RequireActiveFarm` refuse si aucun contexte.
-5. La ressource est chargée avec `resolveRouteBinding`, qui vérifie l'appartenance à l'exploitation.
-6. Le contrôleur retourne une ressource JSON.
-
-## 3.6 Choix techniques
-
-### Laravel 13
-
-Laravel fournit l'essentiel : routage, ORM, validation, sessions, files d'attente, notifications, tests. La version 13 impose PHP 8.3 et modernise la configuration via `bootstrap/app.php`.
-
-### Blade et Tailwind
-
-Blade permet un rendu serveur rapide, sans complexité d'application monopage. Tailwind CSS fournit une interface responsive et cohérente.
-
-### PostgreSQL
-
-PostgreSQL est utilisé en développement et en production locale. Il permet les contraintes `CHECK`, les clés étrangères composites et les verrous pessimistes. SQLite est utilisé uniquement pour les tests.
-
-### Sanctum
-
-Sanctum fournit une authentification par token simple pour l'API, sans OAuth complet.
-
-### PHPUnit
-
-PHPUnit 12 est le framework de test natif de Laravel. Les tests utilisent SQLite en mémoire pour être rapides et isolés.
+- **Laravel 13** : routage, ORM, validation, sessions, files, notifications et tests ; configuration moderne via `bootstrap/app.php`.
+- **Blade + Tailwind** : rendu serveur rapide, responsive, sans complexité d'application monopage.
+- **PostgreSQL 18.6** : contraintes `CHECK`, clés étrangères composites et verrous pessimistes ; SQLite uniquement pour les tests.
+- **Sanctum** : authentification par token simple pour l'API.
+- **PHPUnit** : tests fonctionnels et d'intégration avec `RefreshDatabase`.
 
 ---
 
@@ -479,731 +386,203 @@ PHPUnit 12 est le framework de test natif de Laravel. Les tests utilisent SQLite
 
 ## 4.1 Vue relationnelle
 
-```text
-users 1 ─── n farm_user n ─── 1 farms
-farms 1 ─── n production_units
-farms 1 ─── n crops
-farms 1 ─── n inputs
-farms 1 ─── n campaigns
-production_units 1 ─── n campaigns
-crops 1 ─── n campaigns
-crops 1 ─── 1 crop_guides
-crop_categories 1 ─── n crops
-crops 1 ─── n calendar_steps
-campaigns 1 ─── n activities
-campaigns 1 ─── n harvests
-campaigns 1 ─── n treatments
-campaigns 1 ─── n expenses
-campaigns 1 ─── n revenues
-campaigns 1 ─── n produce_lots
-inputs 1 ─── n stock_movements
-activities 1 ─── 0..1 treatments
-stock_movements 1 ─── 0..1 treatments
-harvests 1 ─── 1 produce_lots
-produce_lots 1 ─── n produce_movements
-produce_lots 1 ─── n sale_items
-customers 1 ─── n sales
-sales 1 ─── n sale_items
-sales 1 ─── n payments
-sales 1 ─── 1 revenues
-harvests 1 ─── n revenues
-users 1 ─── n audit_logs
-farms 1 ─── n audit_logs
-```
-
-## 4.2 Tables principales
-
-### `users`
-
-Compte utilisateur. Champs notables :
-
-- `name`, `email`, `password` ;
-- `is_active` : un compte désactivé ne peut plus se connecter ;
-- `is_platform_admin` : rôle global d'administration ;
-- `email_verified_at`, `remember_token`.
-
-### `farms`
-
-Exploitation agricole.
-
-- `name`, `registration_number`, `location`, `address`, `area_m2` ;
-- `latitude`, `longitude` ;
-- `manager_id` : responsable principal ;
-- `contact_name`, `contact_phone`, `contact_email`, `description` ;
-- `status` : `draft`, `active`, `inactive` ;
-- `currency` : `MGA`.
-
-### `farm_user`
-
-Rattachement d'un utilisateur à une exploitation.
-
-- `farm_id`, `user_id`, `role` ;
-- `is_active` ;
-- unicité `(farm_id, user_id)`.
-
-### `production_units`
-
-Parcelle ou unité de production.
-
-- `code`, `name`, `area_m2`, `location` ;
-- `length_m`, `width_m`, `latitude`, `longitude`, `slope` ;
-- `soil_type`, `irrigation_type`, `sun_exposure`, `notes` ;
-- `type` : `plot` ;
-- `status` : `available`, `occupied`, `resting`, `inactive` ;
-- unicité `(farm_id, code)`.
-
-### `crops` et `crop_categories`
-
-Référentiel des cultures.
-
-- `name`, `variety`, `scientific_name`, `family`, `production_unit`, `estimated_cycle_days` ;
-- `planting_density`, `average_yield_kg_m2`, `seed_rate_kg_m2`, `default_sale_price`, `description` ;
-- `category_id` ;
-- `is_active` ;
-- unicité `(farm_id, name, variety)`.
-
-### `crop_guides`
-
-Fiche de culture générée à partir de la catégorie et de l'espèce.
-
-- contenu textuel : présentation, variétés, climat, sol, préparation, semis, irrigation, fertilisation, entretien, ravageurs, récolte, rendement, conservation, sources ;
-- étapes communes, étapes de catégorie et étapes spécifiques.
-
-### `calendar_steps`
-
-Étapes du calendrier cultural d'une culture.
-
-- `crop_id`, `position`, `name`, `description` ;
-- `offset_days` ;
-- `activity_type`, `is_active`.
-
-### `campaigns`
-
-Campagne de production.
-
-- `production_unit_id`, `crop_id` ;
-- `name`, `start_date`, `expected_end_date`, `actual_end_date` ;
-- `reference_type` : `sowing`, `planting` ;
-- `cultivated_area_m2`, `planting_density` ;
-- `expected_yield_kg`, `actual_yield_kg`, `planned_budget` ;
-- `water_quota_m3`, `water_alert_threshold_percent`, `water_notes` ;
-- `status`, `notes`.
-
-### `activities`
-
-Activité planifiée ou réalisée.
-
-- `campaign_id`, `calendar_step_id` éventuel ;
-- `type`, `title`, `description` ;
-- `planned_date`, `performed_at`, `status` ;
-- `assigned_to`, `created_by`, `performed_by` ;
-- `duration_hours`, `workers_count`, `weather_conditions` ;
-- `overdue_notified_at`, `overdue_consequence` ;
-- `estimated_cost`, `actual_cost`.
-
-### `inputs`
-
-Intrant ou produit.
-
-- `code`, `name`, `category` ;
-- `base_unit`, `quantity`, `minimum_stock` ;
-- `default_pre_harvest_days`, `delay_source` ;
-- `critical_notified_at`, `is_active`.
-
-### `stock_movements`
-
-Mouvement de stock.
-
-- `input_id`, `campaign_id`, `activity_id` ;
-- `type` : `initial`, `entry`, `exit`, `consumption`, `adjustment` ;
-- `quantity_delta`, `occurred_at`, `reason` ;
-- `created_by`, `corrects_movement_id`.
-
-### `phytosanitary_treatments`
-
-Traitement phytosanitaire.
-
-- `campaign_id`, `input_id`, `activity_id`, `stock_movement_id` ;
-- `applied_at`, `dose_value`, `dose_unit` ;
-- `pre_harvest_days`, `delay_source_snapshot` ;
-- `minimum_harvest_at`, `applied_by`, `notes`.
-
-### `harvests`
-
-Récolte.
-
-- `campaign_id`, `harvest_code`, `harvested_at`, `quantity`, `unit` ;
-- `harvested_area_m2`, `loss_quantity`, `quality`, `grade` ;
-- `recorded_by`, `notes`.
-
-### `produce_lots`
-
-Lot de produits frais issu d'une récolte.
-
-- `harvest_id` unique, `campaign_id`, `code` ;
-- `initial_quantity`, `available_quantity`, `unit` ;
-- `quality`, `harvested_at`, `storage_location`, `status` ;
-- `qr_code_path`, `trace_token` unique pour la traçabilité publique ;
-- unicité `(farm_id, code)`.
-
-### `irrigation_events`
-
-Arrosage enregistré sur une campagne et une parcelle.
-
-- `campaign_id`, `production_unit_id` ;
-- `irrigated_at`, `duration_hours`, `volume_m3` ;
-- `method`, `source`, `notes`, `recorded_by` ;
-- contraintes de positivité sur le volume et la durée.
-
-### `production_unit_photos`
-
-Photo d'une parcelle, rattachable à une campagne ou une activité.
-
-- `production_unit_id`, `campaign_id` éventuel, `activity_id` éventuel ;
-- `photo_path`, `caption`, `taken_at`, `uploaded_by` ;
-- index `(farm_id, production_unit_id, created_at)`.
-
-### `produce_movements`
-
-Journal des mouvements d'un lot.
-
-- `produce_lot_id`, `sale_id` éventuel ;
-- `type` : `harvest`, `sale`, `loss`, `gift`, `consumption`, `return`, `adjustment` ;
-- `quantity_delta`, `reason`, `occurred_at`, `created_by`.
-
-### `customers`
-
-Client d'une exploitation.
-
-- `code`, `name`, `type` ;
-- `contact_name`, `phone`, `email`, `address` ;
-- `notes`, `is_active` ;
-- unicité `(farm_id, code)`.
-
-### `sales` et `sale_items`
-
-Vente commerciale et ses lignes.
-
-- `sales` : `customer_id` éventuel, `reference`, `sale_date`, `status` ;
-- `sales` : `subtotal`, `discount_amount`, `total_amount`, `amount_paid`, `payment_status` ;
-- `sales` : `recorded_by`, `cancelled_at`, `notes` ;
-- `sale_items` : `produce_lot_id`, `description`, `quantity`, `unit`, `unit_price`, `line_total` ;
-- unicité `(farm_id, reference)` sur les ventes.
-
-### `payments`
-
-Paiement partiel ou total d'une vente.
-
-- `sale_id`, `amount`, `method`, `paid_at` ;
-- `reference`, `notes`, `recorded_by` ;
-- méthodes : `cash`, `mobile_money`, `bank_transfer`, `check`, `other`.
-
-### `expenses` et `revenues`
-
-Finances simplifiées.
-
-- `campaign_id` éventuel ;
-- `category`, `description`, `amount`, `date` ;
-- `reference`, `recorded_by` ;
-- pour les recettes : `harvest_id` et `sale_id` éventuels, avec au plus une recette par vente.
-
-### `audit_logs`
-
-Journal transversal.
-
-- `farm_id`, `user_id` ;
-- `action`, `description` ;
-- `auditable_type`, `auditable_id` ;
-- `old_values`, `new_values`, `context` ;
-- `ip_address`, `user_agent`, `created_at`.
+Le schéma comporte 26 tables métier et 9 tables techniques Laravel. Les relations structurantes sont :
+
+- `users` N..N `farms` via `farm_user`, avec un rôle par exploitation ;
+- `farms` 1..N `production_units`, `crops`, `inputs`, `customers`, `sales`, `expenses`, `revenues` ;
+- `crops` 1..1 `crop_guides` et 1..N `calendar_steps`, `campaigns` ;
+- `campaigns` 1..N `activities`, `phytosanitary_treatments`, `harvests`, `produce_lots`, `irrigation_events`, `expenses`, `revenues` ;
+- `harvests` 1..1 `produce_lots` ; `produce_lots` 1..N `produce_movements` et `sale_items` ;
+- `sales` 1..N `sale_items` et `payments`, et 1..1 `revenues` ;
+- `audit_logs` et `notifications` référencent l'exploitation et, lorsque disponible, l'utilisateur.
+
+## 4.2 Tables métier
+
+| Table | Rôle | Points clés |
+| --- | --- | --- |
+| `users` | Comptes | `is_active`, `is_platform_admin` |
+| `farms` | Exploitations | responsable, statut, devise MGA |
+| `farm_user` | Rattachement | rôle, actif, unicité `(farm_id, user_id)` |
+| `production_units` | Parcelles | code unique par exploitation, surface, plan |
+| `crop_categories` | Catégories | référentiel global, ordre, activation |
+| `crops` | Cultures | variété, cycle, densité, rendement |
+| `crop_guides` | Fiches culturales | relation 1–1 avec la culture |
+| `calendar_steps` | Modèle de calendrier | décalage, type d'activité, position |
+| `campaigns` | Campagnes | parcelle, culture, dates, quota d'eau |
+| `activities` | Activités | prévue/réalisée, auteur, retard |
+| `inputs` | Intrants | unité de base, seuil, délai par défaut |
+| `stock_movements` | Mouvements d'intrants | type, variation signée, correction |
+| `phytosanitary_treatments` | Traitements | dose, délai, borne de récolte |
+| `harvests` | Récoltes | quantité, qualité, contrôle du délai |
+| `produce_lots` | Lots de produits | quantité disponible, QR, jeton |
+| `produce_movements` | Mouvements de lots | vente, perte, don, retour, ajustement |
+| `customers` | Clients | code unique par exploitation |
+| `sales` | Ventes | montants calculés, statut, annulation |
+| `sale_items` | Lignes de vente | lot, quantité, prix, total |
+| `payments` | Paiements | plafonnés au total de la vente |
+| `expenses` | Dépenses | campagne facultative, référence |
+| `revenues` | Recettes | campagne, récolte ou vente facultative |
+| `irrigation_events` | Irrigations | volume, durée, méthode, source |
+| `production_unit_photos` | Photos | parcelle, campagne ou activité facultative |
+| `audit_logs` | Journal d'audit | acteur, action, valeurs avant/après |
+| `notifications` | Notifications | destinataire et contexte d'exploitation |
 
 ## 4.3 Contraintes d'intégrité
 
 Les migrations ajoutent des contraintes SQL lorsque le driver est PostgreSQL :
 
-- montants strictement positifs ;
-- surfaces strictement positives ;
-- statuts limités à une liste ;
-- types limités à une liste ;
+- montants, surfaces, volumes, durées et quantités strictement positifs ;
+- statuts et types limités à des listes fermées ;
 - signe des mouvements de stock cohérent avec le type ;
-- borne de récolte postérieure ou égale à l'application du traitement ;
-- unité de récolte limitée à `kg` ;
-- devise limitée à `MGA` ;
-- quantités de lots et de lignes de vente strictement positives ;
+- stock d'intrant et stock de lot jamais négatifs ;
 - stock disponible d'un lot compris entre zéro et la quantité initiale ;
-- statuts de vente, de paiement, de lot et types de mouvement limités à une liste ;
-- montants de vente et de paiement non négatifs, paiement plafonné au total.
+- borne de récolte postérieure ou égale à l'application du traitement ;
+- unité de récolte limitée à `kg` et devise à `MGA` ;
+- paiement plafonné au total de la vente ;
+- unicité du code de parcelle, du lot, de la référence de vente et de la référence cliente hors ligne par exploitation.
 
-Ces contraintes complètent la validation applicative et protègent contre les écritures incohérentes, y compris en cas de script ou d'import. Les services vérifient en plus que le client, les lots et la vente appartiennent à l'exploitation active.
+Les services vérifient en plus que le client, les lots, la campagne et la vente appartiennent à l'exploitation active.
 
 ## 4.4 Index et performance
 
-Les index couvrent les requêtes fréquentes :
+Les index couvrent les filtres fréquents : `(farm_id, status)` sur les parcelles, `(farm_id, planned_date)` sur les activités, `(farm_id, input_id, occurred_at)` sur les mouvements, `(farm_id, campaign_id, applied_at)` sur les traitements, `(farm_id, campaign_id, harvested_at)` sur les récoltes, `(farm_id, expense_date)` et `(farm_id, revenue_date)` sur les finances, `(farm_id, sale_date)` et `(farm_id, payment_status)` sur les ventes, `(farm_id, paid_at)` sur les paiements et `(farm_id, created_at)` sur l'audit.
 
-- `(farm_id, status)` sur les parcelles ;
-- `(farm_id, planned_date)` sur les activités ;
-- `(farm_id, input_id, occurred_at)` sur les mouvements ;
-- `(farm_id, campaign_id, applied_at)` sur les traitements ;
-- `(farm_id, campaign_id, harvested_at)` sur les récoltes ;
-- `(farm_id, expense_date)` et `(farm_id, revenue_date)` sur les finances ;
-- `(farm_id, status, harvested_at)` sur les lots de récolte ;
-- `(produce_lot_id, occurred_at)` et `(farm_id, occurred_at)` sur les mouvements de produits ;
-- `(farm_id, sale_date)` et `(farm_id, payment_status)` sur les ventes ;
-- `(farm_id, paid_at)` sur les paiements ;
-- `(farm_id, created_at)` et `(user_id, created_at)` sur l'audit.
-
-Les listes sont paginées par 20 éléments. Le tableau de bord est mis en cache dix minutes.
+Les listes sont paginées par 20 éléments. Le tableau de bord est mis en cache dix minutes avec invalidation par version d'exploitation.
 
 ---
 
 # 5. Sécurité et contrôle d'accès
 
-## 5.1 Authentification web
+## 5.1 Authentification
 
-L'authentification web repose sur les sessions Laravel. Les routes protégées utilisent le middleware `auth`. La déconnexion invalide la session et régénère le jeton CSRF.
+Le web utilise les sessions Laravel et le middleware `auth`. Les mots de passe sont hachés avec Argon2id lorsque la configuration le permet ; les anciens hachages bcrypt restent vérifiables et sont rehachés à la première connexion réussie.
 
-Les mots de passe sont hachés avec Argon2id lorsque la configuration le permet. Les anciens hachages bcrypt restent vérifiables et sont rehachés à la première connexion réussie. La configuration recommande :
+L'API utilise Sanctum : le client obtient un token via `POST /api/login`, puis l'envoie dans `Authorization: Bearer <token>`. Le token ne porte pas de contexte d'exploitation ; celui-ci est fourni par `X-Farm-Id` et vérifié côté serveur.
 
-```text
-HASH_DRIVER=argon2id
-ARGON_MEMORY=65536
-ARGON_TIME=4
-ARGON_THREADS=1
-```
+## 5.2 Contexte d'exploitation
 
-## 5.2 Authentification API
+`FarmContext` conserve l'exploitation active et le rôle courant. Pour le web, `ResolveFarmContext` lit les rattachements actifs, privilégie l'exploitation mémorisée en session, sinon la première disponible, puis alimente le contexte. Pour l'API, `ResolveApiFarmContext` valide l'en-tête `X-Farm-Id`.
 
-L'API utilise Sanctum. Le client obtient un token via `POST /api/login`, puis l'envoie dans l'en-tête `Authorization: Bearer <token>`. La déconnexion révoque le token courant.
+Aucun identifiant d'exploitation n'est accepté directement dans les URL web pour choisir le contexte. Les routes d'administration sont l'exception contrôlée : elles opèrent sur toutes les exploitations et sont réservées aux administrateurs de plateforme.
 
-Le token ne porte pas de contexte d'exploitation : celui-ci est fourni par l'en-tête `X-Farm-Id` et vérifié côté serveur. Un utilisateur ne peut choisir qu'une exploitation à laquelle il est rattaché et actif.
+## 5.3 Policies
 
-## 5.3 Contexte d'exploitation
+Les Policies sont déclarées dans `app/Policies` et découvertes automatiquement. Elles distinguent la consultation, la gestion des référentiels, les finances, l'équipe et l'administration de plateforme. Le trait `ChecksFarmRole` fournit le rôle courant, l'appartenance à l'exploitation et les capacités de gestion.
 
-Le contexte est un service `FarmContext` de portée requête. Il contient :
+Modèles principaux couverts : `Farm`, `FarmUser`, `ProductionUnit`, `Crop`, `CalendarStep`, `Campaign`, `Activity`, `Input`, `StockMovement`, `PhytosanitaryTreatment`, `Harvest`, `ProduceLot`, `Customer`, `Sale`, `Payment`, `Expense`, `Revenue`, `AuditLog` et `User`.
 
-- l'exploitation active ;
-- le rôle de l'utilisateur dans cette exploitation.
+## 5.4 Administrateur de plateforme
 
-Pour le web, `ResolveFarmContext` :
-
-1. lit les rattachements actifs de l'utilisateur ;
-2. privilégie l'exploitation mémorisée en session ;
-3. sinon prend la première exploitation disponible ;
-4. met à jour la session ;
-5. alimente `FarmContext`.
-
-Pour l'API, `ResolveApiFarmContext` lit `X-Farm-Id` et vérifie le rattachement.
-
-Aucun identifiant d'exploitation n'est accepté directement dans les URL web pour choisir le contexte. Les routes d'administration sont l'exception contrôlée : elles opèrent explicitement sur toutes les exploitations, mais elles sont réservées aux administrateurs de plateforme.
-
-## 5.4 Policies
-
-Les Policies sont déclarées dans `app/Policies` et découvertes automatiquement par Laravel selon la convention de nommage.
-
-| Modèle | Policy | Règles principales |
-| --- | --- | --- |
-| `Farm` | `FarmPolicy` | membre pour voir, responsable/admin pour modifier et gérer l'équipe |
-| `ProductionUnit` | `ProductionUnitPolicy` | membre pour voir, responsable/admin pour créer/modifier/supprimer |
-| `Crop` | `CropPolicy` | idem |
-| `CalendarStep` | `CalendarStepPolicy` | idem |
-| `Campaign` | `CampaignPolicy` | idem |
-| `Activity` | `ActivityPolicy` | membre pour voir et créer, responsable/admin pour modifier/supprimer |
-| `Input` | `InputPolicy` | membre pour voir, responsable/admin pour créer/modifier/supprimer/adjuster |
-| `StockMovement` | `StockMovementPolicy` | membre pour voir et créer, responsable/admin pour ajuster |
-| `PhytosanitaryTreatment` | `TreatmentPolicy` | membre pour voir, responsable/admin pour créer |
-| `Harvest` | `HarvestPolicy` | membre pour voir et créer, responsable/admin pour supprimer |
-| `Expense` | `ExpensePolicy` | membre pour voir, responsable/admin pour gérer |
-| `Revenue` | `RevenuePolicy` | membre pour voir, responsable/admin pour gérer |
-| `AuditLog` | `AuditLogPolicy` | responsable/admin pour consulter, dans l'exploitation active |
-| `User` | `UserPolicy` | administrateur de plateforme uniquement |
-
-Le trait `ChecksFarmRole` évite la duplication :
-
-```php
-protected function currentRole(): ?FarmRole
-{
-    return app(FarmContext::class)->role();
-}
-
-protected function canManageFinances(): bool
-{
-    return $this->currentRole()?->canManageFinances() ?? false;
-}
-
-protected function belongsToCurrentFarm(Model $model): bool
-{
-    return (int) $model->getAttribute('farm_id')
-        === (int) app(FarmContext::class)->id();
-}
-```
-
-## 5.5 Administrateur de plateforme
-
-Le rôle de plateforme est accordé par `is_platform_admin`. Un `Gate::before` global autorise toutes les abilities pour cet utilisateur :
-
-```php
-Gate::before(function (User $user): ?bool {
-    return $user->isPlatformAdmin() ? true : null;
-});
-```
-
-Ce mécanisme est volontairement simple. Il est complété par des contrôles métier dans les contrôleurs d'administration :
+Le rôle de plateforme est accordé par `is_platform_admin`. Un `Gate::before` global autorise les abilities pour cet utilisateur, complété par des contrôles métier dans l'administration :
 
 - interdiction de désactiver son propre compte ;
 - interdiction de retirer son propre rôle de plateforme ;
 - interdiction de retirer le dernier administrateur de plateforme ;
 - interdiction de retirer le rôle Responsable au responsable principal d'une exploitation.
 
-## 5.6 Isolation multi-exploitations
+## 5.5 Isolation multi-exploitations
 
-L'isolation repose sur trois niveaux.
+L'isolation repose sur trois niveaux :
 
-### Niveau 1 — Contexte
+1. **Contexte** : résolu côté serveur depuis un rattachement actif ;
+2. **Requêtes** : trait `BelongsToFarm`, scope `forFarm` et `resolveRouteBinding` renvoyant 404 hors exploitation ;
+3. **Contraintes** : clés étrangères composites `(farm_id, id)` empêchant les références croisées.
 
-Le contexte est résolu côté serveur. Un utilisateur ne peut activer qu'une exploitation à laquelle il est rattaché et actif.
+Cette défense en profondeur couvre les URL, les identifiants, les listes, les exports, les notifications et les jobs.
 
-### Niveau 2 — Requêtes
+## 5.6 Protections web et journalisation des refus
 
-Les modèles métier utilisent le trait `BelongsToFarm` :
+Validation systématique via `$request->validate` ou `FormRequest`, CSRF, échappement Blade, `$fillable` limité, requêtes paramétrées, cookies chiffrés, limitation de débit API et messages 403/404 génériques.
 
-- le scope `forFarm` restreint les listes ;
-- `resolveRouteBinding` renvoie un 404 si la ressource appartient à une autre exploitation.
-
-### Niveau 3 — Contraintes
-
-Les clés étrangères composites lient les entités à la même exploitation. Par exemple, une campagne ne peut référencer qu'une parcelle et une culture de la même exploitation.
-
-Cette défense en profondeur empêche les fuites par URL, par identifiant ou par requête mal formée.
-
-## 5.7 Validation et protections web
-
-- Validation systématique des entrées via `$request->validate` ou `FormRequest`.
-- Protection CSRF sur les formulaires web.
-- Échappement Blade par défaut contre XSS.
-- Assignation de masse limitée par `$fillable`.
-- Requêtes SQL paramétrées par Eloquent.
-- Cookies de session chiffrés.
-- Limitation de débit sur l'API (`throttle:api`, 60 requêtes/minute).
-- Messages d'erreur génériques pour les 403 et 404.
-
-## 5.8 Journalisation des refus
-
-Les refus d'accès sont journalisés par `DeniedAccessLogger`, appelé depuis le gestionnaire d'exceptions. Il couvre :
-
-- `AuthorizationException` (403) ;
-- `AccessDeniedHttpException` (403) ;
-- `ModelNotFoundException` (404 d'isolation).
-
-Le journal enregistre la méthode HTTP, le chemin, la route, le statut et l'utilisateur. Il ne journalise pas les requêtes anonymes.
+`DeniedAccessLogger` journalise les `AuthorizationException`, `AccessDeniedHttpException` et `ModelNotFoundException` avec méthode, chemin, route, statut et utilisateur. Les requêtes anonymes ne sont pas journalisées.
 
 ---
 
 # 6. Fonctionnalités métier
 
-## 6.1 Parcelles et cultures
+## 6.1 Parcelles, cultures et fiches
 
-Les parcelles sont les unités physiques de production. Elles portent un code unique par exploitation, une surface, un emplacement et un statut. Les dimensions `length_m` et `width_m` sont facultatives : elles enrichissent la fiche et le plan sans imposer une géométrie exacte.
+Les parcelles portent un code unique par exploitation, une surface, un emplacement et un statut. Les dimensions `length_m` et `width_m` sont facultatives et enrichissent la fiche et le plan sans imposer une géométrie exacte.
 
-Les cultures sont des référentiels propres à l'exploitation. Chaque culture peut être associée à une catégorie (légumes-feuilles, légumes-fruits, racines, etc.) et à une fiche de culture.
+Les cultures sont des référentiels propres à l'exploitation, associés à une catégorie et à une fiche de culture. La fiche est générée à partir d'étapes communes, d'étapes de catégorie et de points spécifiques à l'espèce ; elle reste qualitative et ne remplace pas une recommandation locale.
 
-La fiche de culture est générée à partir de :
+## 6.2 Calendrier cultural — module personnel
 
-- étapes communes à toutes les cultures ;
-- étapes spécifiques à la catégorie ;
-- points spécifiques connus pour l'espèce ;
-- variété et durée de cycle renseignées.
+Le calendrier cultural est le module personnel retenu. Chaque étape possède un décalage en jours (`offset_days`) ; la date planifiée est calculée depuis la date de référence de la campagne. La génération est idempotente : les activités planifiées sont mises à jour, les activités réalisées ou annulées sont préservées. La replanification ne touche que les activités planifiées.
 
-Le contenu reste qualitatif : il ne remplace pas les recommandations locales.
+Le service retourne un bilan `{ created, updated, preserved }` et évite les doublons. Le suivi des retards complète le module : une activité planifiée dépassée est signalée, puis une alerte critique est émise au-delà de trois jours.
 
-## 6.2 Calendrier cultural
+## 6.3 Campagnes et activités
 
-Le calendrier cultural est un module complémentaire du projet. Il permet de générer automatiquement les activités prévues d'une campagne à partir des étapes de la culture.
+Une campagne associe une parcelle, une culture, une date de début, une fin prévue, une surface cultivée, un quota d'eau et un statut (`planned`, `ongoing`, `suspended`, `completed`, `cancelled`). La date de référence peut être un semis ou une plantation.
 
-Fonctionnement :
+Les activités couvrent la préparation du sol, le semis, le repiquage, la fertilisation, le traitement, l'irrigation, le désherbage, la récolte, l'observation et l'entretien. Elles peuvent être planifiées, réalisées ou annulées, assignées à un utilisateur et exécutées par un autre. Le scope `overdue` détecte les retards.
 
-1. chaque étape possède un décalage en jours (`offset_days`) ;
-2. la date planifiée est calculée depuis `campaigns.start_date` ;
-3. la génération est idempotente ;
-4. les activités planifiées sont mises à jour ;
-5. les activités réalisées ou annulées sont préservées ;
-6. la replanification ne touche que les activités planifiées.
+## 6.4 Intrants et stocks
 
-Le service retourne un bilan :
+Les intrants sont catégorisés (semences, engrais, phytosanitaires, carburant, consommables) et possèdent une unité de base, une quantité courante, un seuil minimal, un délai avant récolte par défaut et une source de délai.
 
-```text
-{ created: n, updated: n, preserved: n }
-```
+Toute variation passe par `StockService` : stock initial, entrée, consommation, sortie ou ajustement signé. Le service arrondit à trois décimales, refuse une variation nulle, verrouille la ligne, refuse un solde négatif, met à jour `critical_notified_at`, déclenche `StockCritical` au passage sous le seuil et invalide le cache du tableau de bord.
 
-Cette conception évite les doublons et respecte le travail déjà réalisé sur le terrain.
+## 6.5 Traitements et récoltes
 
-## 6.3 Campagnes
-
-Une campagne associe une parcelle, une culture, une date de début, une date de fin prévue, une surface cultivée et un statut.
-
-Statuts :
-
-- `planned` : planifiée ;
-- `ongoing` : en cours ;
-- `suspended` : suspendue ;
-- `completed` : terminée ;
-- `cancelled` : annulée.
-
-Une campagne peut être associée à un type de référence : semis ou plantation.
-
-## 6.4 Activités
-
-Les activités couvrent :
-
-- préparation du sol ;
-- semis ;
-- repiquage ;
-- fertilisation ;
-- traitement ;
-- irrigation ;
-- désherbage ;
-- récolte ;
-- observation ;
-- entretien.
-
-Une activité peut être planifiée, réalisée ou annulée. Elle peut être assignée à un utilisateur et exécutée par un autre. Les activités en retard sont détectées par le scope `overdue`.
-
-## 6.5 Intrants et stocks
-
-Les intrants sont catégorisés : semences, engrais, produits phytosanitaires, carburant, consommables. Chaque intrant possède :
-
-- une unité de base ;
-- une quantité courante ;
-- un seuil minimal ;
-- un délai avant récolte par défaut pour les phytosanitaires ;
-- une source du délai.
-
-Toute variation passe par `StockService` :
-
-- `setInitial` : stock initial ;
-- `receive` : entrée ;
-- `consume` : consommation ;
-- `release` : sortie ;
-- `adjust` : ajustement signé.
-
-Le service :
-
-- arrondit à trois décimales ;
-- refuse une variation nulle ;
-- verrouille la ligne ;
-- refuse un solde négatif ;
-- met à jour `critical_notified_at` ;
-- déclenche `StockCritical` au passage sous le seuil ;
-- invalide le cache du tableau de bord.
-
-## 6.6 Traitements phytosanitaires
-
-Un traitement est enregistré via `TreatmentService`. Le service vérifie :
-
-- la quantité positive ;
-- le délai non négatif ;
-- l'appartenance de l'intrant et de la campagne à la même exploitation ;
-- le caractère utilisable du produit phytosanitaire.
-
-Il crée ensuite, dans une transaction :
+`TreatmentService` vérifie la quantité positive, le délai non négatif, l'appartenance de l'intrant et de la campagne à la même exploitation et le caractère utilisable du produit. Il crée ensuite, dans une transaction :
 
 1. une activité réalisée ;
 2. un mouvement de stock de consommation ;
 3. le traitement avec sa borne de récolte.
 
-La borne est figée dans `minimum_harvest_at`. La source du délai est snapshotée pour conserver la preuve au moment de l'application.
+La borne minimale est `applied_at + pre_harvest_days × 24 heures`, figée dans `minimum_harvest_at` avec snapshot de la source du délai.
 
-## 6.7 Récoltes
+`HarvestService` applique la borne la plus tardive des traitements appliqués au plus tard à la date de récolte. Une récolte antérieure est refusée par `HarvestTooEarlyException`. Chaque récolte crée automatiquement un lot `ProduceLot` et un mouvement d'entrée, ce qui permet de reconstituer la traçabilité jusqu'à la vente.
 
-`HarvestService` vérifie la quantité et la borne de récolte. La borne applicable est la plus tardive des bornes des traitements appliqués au plus tard à la date de récolte.
+## 6.6 Lots, clients, ventes et paiements
 
-Si la date de récolte est antérieure, une `HarvestTooEarlyException` est levée et la récolte est refusée.
+Le stock de produits frais est distinct du stock d'intrants. Il est porté par les lots et leurs mouvements : entrée à la récolte, sortie à la vente, perte, don, consommation, retour ou ajustement. `ProduceStockService` verrouille le lot, refuse un disponible négatif ou supérieur à la quantité initiale et passe le lot à `depleted` lorsque le solde atteint zéro.
 
-Cette règle est bloquante côté serveur et ne peut pas être contournée par le client.
+Les clients sont gérés par exploitation avec un code unique, un type, des coordonnées et un statut. Une vente comporte une ou plusieurs lignes rattachées à des lots. `SaleService` vérifie l'appartenance des lots, verrouille les lots, refuse une quantité supérieure au stock, calcule le sous-total, la remise et le total, crée les lignes, les mouvements de sortie et la recette, puis génère une référence unique.
 
-Chaque récolte crée automatiquement un lot `ProduceLot` et un mouvement d'entrée. Le lot conserve le lien vers la récolte, la campagne et la culture, ce qui permet de reconstituer la traçabilité jusqu'à la vente.
+Les paiements peuvent être partiels et leur cumul ne peut pas dépasser le total ; le statut passe de `unpaid` à `partial` puis `paid`. Une vente n'est annulable qu'avant tout paiement : le stock est restauré, la recette supprimée et la vente marquée `cancelled`.
 
-## 6.8 Stock de produits récoltés
+## 6.7 Finances et indicateurs
 
-Le stock de produits frais est distinct du stock d'intrants. Il est porté par les lots et leurs mouvements :
+Les dépenses et recettes sont catégorisées et peuvent être rattachées à une campagne ; une recette peut aussi l'être à une récolte ou à une vente. Le tableau de bord présente le total des dépenses, le total des recettes, la marge simplifiée, les campagnes actives, les parcelles, les intrants sous seuil, les activités en retard, le taux de réalisation, la quantité récoltée, le rendement kg/ha, le stock de produits frais, les ventes de la période et le reste à encaisser.
 
-- entrée automatique à la récolte ;
-- sortie à la vente ;
-- perte, don ou consommation ;
-- retour lors d'une annulation ;
-- ajustement signé avec motif.
+`DashboardService` calcule les agrégats à la demande et les met en cache dix minutes. La clé inclut l'exploitation, une version de cache par exploitation et un hash des filtres. `DashboardCache::forget` incrémente la version, ce qui invalide toutes les combinaisons.
 
-`ProduceStockService` verrouille le lot, calcule le disponible après mouvement, refuse toute valeur négative et refuse un disponible supérieur à la quantité initiale. Le statut du lot passe à `depleted` lorsque le solde atteint zéro. Les écrans `/stock-recolte` et `/stock-recolte/{lot}` présentent les lots, leur traçabilité et l'historique des mouvements.
+## 6.8 Irrigation, photos, alertes et traçabilité
 
-## 6.9 Clients, ventes et paiements
+`IrrigationEvent` enregistre la date, le volume en mètres cubes, la durée, la méthode, la source et l'utilisateur. La campagne et la parcelle doivent appartenir à l'exploitation active. `IrrigationService` produit le volume total, le nombre d'arrosages, la durée cumulée, la densité en m³/m² et l'état par rapport au quota : `ok`, `approaching` ou `exceeded`. Le seuil d'alerte est de 80 % par défaut.
 
-Les clients sont gérés par exploitation avec un code unique, un type (particulier, revendeur, restaurant, hôtel, coopérative, autre), des coordonnées et un statut actif.
+Une parcelle peut recevoir une photo principale et un historique de photos, liées facultativement à une campagne ou une activité, avec légende et date. Les fichiers sont stockés sur le disque `public` et restent isolés par exploitation.
 
-Une vente comporte une ou plusieurs lignes rattachées à des lots. `SaleService` :
+Les activités critiques exposent leur conséquence métier et l'action attendue ; `overdue_notified_at` conserve la date de première notification. `QrCodeService` génère un QR code scannable ; chaque lot possède un `trace_token` opaque et un fichier `qr_code_path`. La page `/traceabilite/{token}` présente la parcelle, la campagne, la culture, les activités, les traitements et la récolte, sans authentification. Le contenu est déclaratif et ne constitue pas une certification officielle.
 
-- vérifie que les lots appartiennent à l'exploitation ;
-- verrouille les lots et refuse une quantité supérieure au stock ;
-- calcule le sous-total, la remise et le total ;
-- crée les lignes, les mouvements de sortie et la recette ;
-- génère une référence unique ;
-- met à jour le cache du tableau de bord.
+## 6.9 Notifications, plan et navigation
 
-Les paiements peuvent être partiels. Leur cumul ne peut pas dépasser le total de la vente ; le statut passe de `unpaid` à `partial` puis `paid`. Une vente ne peut être annulée qu'avant tout paiement : le stock est restauré, la recette supprimée et la vente marquée `cancelled`. Les écrans `/clients` et `/ventes` exposent ces parcours ; les agents peuvent consulter les ventes mais pas les créer, les encaisser ni les annuler.
+L'événement `StockCritical` est traité par un listener qui envoie une notification sur le canal `farm`, stockée en base et filtrée par exploitation. Le traitement peut être différé via la file d'attente.
 
-## 6.10 Finances
+Le plan interactif `/plan` est une fonctionnalité complémentaire : `FarmMapService` charge les parcelles, campagnes actives, activités planifiées, récoltes récentes et traitements, puis produit une disposition proportionnelle aux surfaces, une couleur stable par culture, les alertes par parcelle et les prochaines activités. Le relief 3D est décoratif et ne doit pas être interprété comme une mesure de pente ou de distance.
 
-Les finances sont simplifiées :
-
-- dépenses catégorisées ;
-- recettes catégorisées ;
-- rattachement optionnel à une campagne ;
-- rattachement optionnel d'une recette à une récolte ou à une vente.
-
-Les indicateurs du tableau de bord sont :
-
-- total des dépenses ;
-- total des recettes ;
-- marge simplifiée ;
-- campagnes actives ;
-- nombre et surface des parcelles ;
-- intrants sous seuil ;
-- activités en retard ;
-- taux de réalisation ;
-- quantité récoltée ;
-- rendement kg/ha ;
-- stock de produits frais disponible et nombre de lots ;
-- montant des ventes de la période et reste à encaisser ;
-- activités récentes.
-
-Le calcul est isolé par exploitation et mis en cache.
-
-## 6.11 Notifications
-
-Le projet utilise le système de notifications Laravel avec un canal personnalisé `farm`. Les notifications sont stockées en base et filtrées par exploitation.
-
-L'événement `StockCritical` est traité par un listener qui envoie une notification. Le traitement peut être différé via la file d'attente.
-
-## 6.12 Tableau de bord et cache
-
-`DashboardService` calcule les agrégats à la demande et les met en cache dix minutes. La clé inclut :
-
-- l'identifiant de l'exploitation ;
-- une version de cache par exploitation ;
-- un hash des filtres.
-
-`DashboardCache::forget` incrémente la version, ce qui invalide toutes les combinaisons de filtres sans parcourir le cache.
-
-## 6.13 Plan interactif et navigation
-
-Le plan interactif est accessible depuis `/plan` et constitue le module personnel de la version livrée. `FarmMapService` charge en une requête les parcelles, leurs campagnes actives, les activités planifiées, les récoltes récentes et les traitements. Il produit :
-
-- une disposition récursive proportionnelle aux surfaces, dans un cadre 100 × 62,5 ;
-- une couleur stable par culture, calculée par empreinte du nom ;
-- les alertes par parcelle : activités en retard et récolte bloquée par un délai ;
-- les prochaines activités, les récoltes récentes et la progression de campagne ;
-- les stocks d'intrants sous le seuil minimal.
-
-L'interface Blade affiche le plan en 2D. Un bouton bascule vers un relief 3D obtenu par transformation CSS (`rotateX`, `rotateZ`, ombres portées), sans dépendance JavaScript lourde. La sélection d'une parcelle ouvre son panneau de détail ; la touche `Échap` et le bouton de fermeture reviennent à la vue d'ensemble. Les parcelles restent des boutons accessibles au clavier.
-
-Le menu principal regroupe les neuf entrées les plus utilisées : tableau de bord, plan, parcelles, campagnes, activités, irrigation, agenda, stock récolté et hub. La page `/modules` regroupe les autres fonctions par domaine : pilotage, production, commercial et finances, exploitation. Les liens vers l'équipe et le journal d'audit ne sont ajoutés que si les Policies l'autorisent. Le parcours maximal est donc de deux clics pour une fonction secondaire.
-
-## 6.14 Irrigation et suivi de l'eau
-
-`IrrigationEvent` enregistre un arrosage avec sa date, son volume en mètres cubes, sa durée, sa méthode, sa source et l'utilisateur qui l'a saisi. La campagne et la parcelle doivent appartenir à l'exploitation active et la parcelle doit correspondre à celle de la campagne.
-
-`IrrigationService` produit un résumé par campagne : volume total, nombre d'arrosages, durée cumulée, densité en m³/m² et état par rapport au quota d'eau. Le quota et le seuil d'alerte (`water_alert_threshold_percent`, 80 % par défaut) sont des paramètres d'exploitation, pas des recommandations agronomiques. L'état est `ok`, `approaching` ou `exceeded`. Les écrans `/irrigation` et `/irrigation/comparaison` présentent la saisie, le journal et la comparaison entre campagnes.
-
-## 6.15 Photos de parcelles
-
-Une parcelle peut recevoir une photo principale (`production_units.photo_path`) et un historique de photos (`production_unit_photos`). Chaque photo peut être liée à une campagne et à une activité, avec une légende et une date de prise de vue. Les fichiers sont stockés sur le disque `public` et servis via le lien `storage`. Le plan interactif affiche les dernières photos et permet le téléversement ou la suppression selon les droits. Les photos restent isolées par exploitation et les campagnes liées sont validées côté serveur.
-
-## 6.16 Alertes de retard critique
-
-`Activity::isLate()` conserve la règle générale du retard. `Activity::daysLate()` et `Activity::isCriticallyLate()` ajoutent le seuil de trois jours. Une activité planifiée dont la date est dépassée de plus de trois jours déclenche une alerte critique, expose la conséquence métier (`overdue_consequence`) et l'action attendue. `overdue_notified_at` conserve la date de première notification. Le tableau de bord et la liste des activités proposent un filtre dédié.
-
-## 6.17 Traçabilité publique par QR code
-
-`QrCodeService` génère un QR code réellement scannable avec `bacon/bacon-qr-code` et le rendu GD (repli SVG si GD est indisponible). Chaque lot possède un `trace_token` opaque et un fichier `qr_code_path`. Le QR pointe vers `/traceabilite/{token}`, accessible sans authentification et rendu par un layout public dédié. La page présente la parcelle, la campagne, la culture, les activités, les traitements et la récolte. Le contenu est déclaratif et ne constitue pas une certification officielle.
+Le menu principal regroupe neuf entrées (tableau de bord, plan, parcelles, campagnes, activités, irrigation, agenda, stock récolté, hub). La page `/modules` regroupe les fonctions secondaires par domaine ; les liens vers l'équipe et le journal d'audit ne sont ajoutés que si les Policies l'autorisent. Le parcours maximal est de deux clics pour une fonction secondaire.
 
 ---
 
 # 7. Journalisation et audit
 
-## 7.1 Objectifs
+## 7.1 Objectifs et modèle
 
-Le journal d'audit répond à plusieurs besoins :
+Le journal d'audit permet de savoir qui a fait quoi et quand, de reconstituer une opération sensible, de détecter les accès non autorisés et de conserver les valeurs avant/après.
 
-- savoir qui a fait quoi et quand ;
-- reconstituer une opération sensible ;
-- détecter les tentatives d'accès non autorisées ;
-- faciliter la démonstration et le contrôle ;
-- conserver les valeurs avant/après pour les modifications.
+Chaque ligne de `audit_logs` contient `farm_id`, `user_id`, `action`, `description`, `auditable_type`, `auditable_id`, `old_values`, `new_values`, `context`, `ip_address`, `user_agent` et `created_at`. Le modèle fournit les casts JSON, les relations `farm`, `user`, `auditable`, les scopes `forFarm` et `search`, ainsi qu'un libellé d'action lisible.
 
-## 7.2 Modèle `audit_logs`
+## 7.2 Trait `Auditable` et `AuditLogger`
 
-Chaque ligne contient :
+Les modèles `Farm`, `FarmUser`, `ProductionUnit`, `Crop`, `CalendarStep`, `Campaign`, `Activity`, `Input`, `StockMovement`, `PhytosanitaryTreatment`, `Harvest`, `Expense`, `Revenue`, `Customer`, `ProduceLot`, `ProduceMovement`, `Sale`, `SaleItem` et `Payment` utilisent le trait `Auditable`, qui écoute `created`, `updated` et `deleted`.
 
-| Champ | Rôle |
-| --- | --- |
-| `farm_id` | exploitation concernée, nullable |
-| `user_id` | acteur, nullable |
-| `action` | code stable, ex. `expense.created` |
-| `description` | texte lisible |
-| `auditable_type` | classe du sujet |
-| `auditable_id` | identifiant du sujet |
-| `old_values` | valeurs avant modification |
-| `new_values` | valeurs après création/modification |
-| `context` | méthode, chemin, route, statut |
-| `ip_address` | adresse IP |
-| `user_agent` | agent utilisateur |
-| `created_at` | horodatage |
+`AuditLogger` déduit l'utilisateur depuis la requête ou `Auth`, déduit l'exploitation depuis le sujet ou le contexte, exclut les champs sensibles (`password`, `remember_token`, timestamps), limite la taille des chaînes et convertit une erreur d'écriture en avertissement applicatif. Le journal ne doit jamais interrompre une opération métier.
 
-Le modèle `AuditLog` fournit :
-
-- les casts JSON ;
-- les relations `farm`, `user`, `auditable` ;
-- le scope `forFarm` ;
-- le scope `search` ;
-- un libellé d'action lisible.
-
-## 7.3 Trait `Auditable`
-
-Les modèles suivants utilisent `Auditable` :
-
-- `Farm` ;
-- `FarmUser` ;
-- `ProductionUnit` ;
-- `Crop` ;
-- `CalendarStep` ;
-- `Campaign` ;
-- `Activity` ;
-- `Input` ;
-- `StockMovement` ;
-- `PhytosanitaryTreatment` ;
-- `Harvest` ;
-- `Expense` ;
-- `Revenue` ;
-- `Customer` ;
-- `ProduceLot` ;
-- `ProduceMovement` ;
-- `Sale` ;
-- `SaleItem` ;
-- `Payment`.
-
-Le trait écoute les événements Eloquent `created`, `updated` et `deleted`, puis appelle `AuditLogger::recordModelEvent`.
-
-## 7.4 `AuditLogger`
-
-`AuditLogger` centralise l'écriture. Il :
-
-- déduit l'utilisateur depuis la requête ou `Auth` ;
-- déduit l'exploitation depuis le sujet ou le contexte ;
-- exclut les champs sensibles (`password`, `remember_token`, timestamps) ;
-- limite la taille des chaînes ;
-- convertit toute erreur d'écriture en avertissement de log applicatif.
-
-Le journal ne doit jamais interrompre une opération métier.
-
-## 7.5 Événements tracés
+## 7.3 Événements et consultation
 
 | Catégorie | Exemples |
 | --- | --- |
@@ -1214,24 +593,11 @@ Le journal ne doit jamais interrompre une opération métier.
 | Refus | `access.denied` |
 | Administration | `admin.user.created`, `admin.user.deactivated`, `admin.membership.updated`, `admin.farm.status` |
 
-## 7.6 Consultation
+Deux écrans sont disponibles : `/journal` pour l'exploitation active (responsables et administrateurs) et `/admin/journal` pour la vue transversale (administrateurs de plateforme). Les deux permettent la recherche, la pagination et l'affichage du contexte.
 
-Deux écrans sont disponibles :
+## 7.4 Rétention
 
-- `/journal` : journal de l'exploitation active, accessible aux responsables et administrateurs d'exploitation ;
-- `/admin/journal` : journal transversal, accessible aux administrateurs de plateforme.
-
-Les deux écrans permettent la recherche par action ou description, la pagination et l'affichage du contexte.
-
-## 7.7 Limites et rétention
-
-La version actuelle ne met pas en place de purge automatique. Une politique de rétention devra être définie selon les besoins :
-
-- conservation longue pour les opérations financières et les traitements ;
-- purge ou archivage des connexions et refus après une durée définie ;
-- export périodique pour archivage.
-
-Le journal ne stocke pas les valeurs binaires ni les pièces jointes. Il ne remplace pas un système de sauvegarde.
+La commande `audit:prune` applique une politique de rétention et est planifiée quotidiennement à 02:30 avec `withoutOverlapping`. Les actions sensibles sont conservées plus longtemps ; la durée reste configurable. Le journal ne stocke ni valeurs binaires ni pièces jointes et ne remplace pas une sauvegarde.
 
 ---
 
@@ -1299,212 +665,73 @@ Les ressources `CampaignResource` et `ActivityResource` exposent uniquement les 
 
 ## 9.1 Stratégie
 
-La stratégie de test combine :
-
-- tests unitaires pour les composants isolés ;
-- tests fonctionnels pour les parcours HTTP ;
-- tests d'intégration pour les services et la base ;
-- tests d'isolation multi-exploitations ;
-- tests d'autorisation ;
-- tests d'audit ;
-- tests d'administration.
-
-Les tests utilisent `RefreshDatabase` et SQLite en mémoire. Chaque test est isolé.
+La stratégie combine tests unitaires, tests fonctionnels HTTP, tests d'intégration des services et de la base, tests d'isolation multi-exploitations, tests d'autorisation, tests d'audit et tests d'administration. Les tests utilisent `RefreshDatabase` et SQLite en mémoire pour être rapides et isolés.
 
 ## 9.2 Organisation
 
-```text
-tests/
-  Concerns/InteractsWithFarm.php
-  Feature/
-    AdminPanelTest.php
-    ApiActivitiesTest.php
-    ApiAuthTest.php
-    ApiCampaignsTest.php
-    AuditLogTest.php
-    Auth/AuthenticationTest.php
-    CalendarGenerationTest.php
-    CalendarTest.php
-    CommercialChainTest.php
-    CropCatalogTest.php
-    DashboardCacheTest.php
-    DashboardCounterTest.php
-    EnumOptionsRenderingTest.php
-    FarmIsolationTest.php
-    FarmMapTest.php
-    FinanceAuthorizationTest.php
-    ModuleNavigationTest.php
-    NotificationFarmScopeTest.php
-    PasswordHashingTest.php
-    PolicyAuthorizationTest.php
-    ResourceCenterTest.php
-    StockManagementTest.php
-    TeamManagementTest.php
-    TreatmentAndHarvestTest.php
-  Unit/
-    ExampleTest.php
-```
+Les tests sont regroupés dans `tests/Feature` par domaine : authentification et API, administration, audit et rétention, sauvegarde/restauration, calendrier, chaîne commerciale, catalogue cultural, cache et tableau de bord, exports, isolation, plan, finances, santé, irrigation, navigation, notifications, synchronisation hors ligne, retards, mots de passe, Policies, photos, rentabilité, ressources, stock, équipe, traçabilité QR, traitements et récoltes. `tests/Unit` contient les tests unitaires isolés.
 
 ## 9.3 Couverture fonctionnelle
 
 | Domaine | Tests représentatifs |
 | --- | --- |
-| Authentification | `AuthenticationTest`, `ApiAuthTest` |
+| Authentification et API | `AuthenticationTest`, `ApiAuthTest`, `ApiActivitiesTest`, `ApiCampaignsTest` |
 | Rôles et Policies | `PolicyAuthorizationTest`, `FinanceAuthorizationTest`, `TeamManagementTest` |
 | Isolation | `FarmIsolationTest`, `NotificationFarmScopeTest` |
-| Stock | `StockManagementTest` |
+| Stock | `StockManagementTest`, dont recharge sous verrou |
 | Traitement et récolte | `TreatmentAndHarvestTest` |
-| Chaîne commerciale | `CommercialChainTest` |
 | Calendrier | `CalendarTest`, `CalendarGenerationTest` |
-| Cultures et ressources | `CropCatalogTest`, `ResourceCenterTest` |
-| Tableau de bord | `DashboardCounterTest`, `DashboardCacheTest` |
+| Chaîne commerciale | `CommercialChainTest` |
+| Rentabilité, exports, sauvegarde | `ProfitabilityTest`, `ExportTest`, `BackupRestoreTest` |
+| Supervision et audit | `HealthCheckTest`, `AuditLogTest`, `AuditRetentionTest` |
+| Hors ligne et notifications | `OfflineSyncTest`, `NotificationFarmScopeTest` |
 | Plan et navigation | `FarmMapTest`, `ModuleNavigationTest` |
-| Irrigation | `IrrigationTest` |
-| Photos de parcelles | `ProductionUnitPhotoTest` |
-| Alertes de retard critique | `OverdueActivityAlertTest` |
-| Traçabilité QR | `TraceabilityQrTest` |
-| Audit | `AuditLogTest` |
+| Irrigation, photos, retards, QR | `IrrigationTest`, `ProductionUnitPhotoTest`, `OverdueActivityAlertTest`, `TraceabilityQrTest` |
 | Administration | `AdminPanelTest` |
-| API | `ApiAuthTest`, `ApiCampaignsTest`, `ApiActivitiesTest` |
-| Sécurité des mots de passe | `PasswordHashingTest` |
-| Rendu des énumérations | `EnumOptionsRenderingTest` |
 
 ## 9.4 Résultats
 
-Commande exécutée :
-
-```bash
-php artisan test --compact
-```
-
-Résultat :
-
 ```text
-Tests:    123 passed (419 assertions)
-Duration: 15.02s
+php artisan test --compact
+Tests:    152 passed (544 assertions)
 ```
 
-Les tests couvrent notamment :
+Les tests vérifient notamment l'accès interdit aux agents pour les référentiels et finances, l'accès autorisé des responsables, l'isolation des ressources, la journalisation des refus et des opérations métier, l'administration plateforme, le blocage des récoltes trop précoces, le stock non négatif, la génération idempotente du calendrier, la création automatique du lot, la vente avec paiements partiels et annulation, le refus d'une vente supérieure au stock ou d'un lot étranger, le plan et ses alertes, le hub de modules, l'authentification API, le hachage des mots de passe et le cycle de sauvegarde/restauration.
 
-- l'accès interdit à un agent pour les référentiels et finances ;
-- l'accès autorisé pour un responsable ;
-- l'isolation des ressources par exploitation ;
-- la journalisation des refus ;
-- la journalisation des opérations métier ;
-- l'administration plateforme ;
-- la création de comptes et de rattachements ;
-- le blocage des récoltes trop précoces ;
-- le stock non négatif ;
-- la génération idempotente du calendrier ;
-- la création automatique du lot à la récolte ;
-- la vente, les paiements partiels et l'annulation avec restitution du stock ;
-- le refus d'une vente supérieure au stock et d'un lot d'une autre exploitation ;
-- le rendu du plan, ses alertes et l'isolation des parcelles ;
-- l'enregistrement des dimensions facultatives d'une parcelle ;
-- le hub de modules et le masquage des fonctions réservées aux agents ;
-- l'authentification API ;
-- le hachage des mots de passe.
+## 9.5 Limites
 
-## 9.5 Formatage
-
-Le projet utilise Laravel Pint :
-
-```bash
-vendor/bin/pint
-```
-
-Le formatage est vérifié avant livraison. Les règles suivent le style Laravel/PSR-12.
-
-## 9.6 Limites des tests
-
-- SQLite ne reproduit pas toutes les contraintes PostgreSQL, notamment certaines contraintes `CHECK`.
-- Les tests ne couvrent pas encore tous les cas limites de concurrence.
-- Les tests d'interface restent limités ; il n'y a pas de tests end-to-end navigateur.
-- La file d'attente est testée de manière fonctionnelle, pas en conditions de charge.
-- Les performances ne font pas l'objet de tests dédiés.
+SQLite ne reproduit pas toutes les contraintes PostgreSQL, notamment certains `CHECK`. Les cas limites de concurrence, les tests navigateur end-to-end, la charge et les performances ne sont pas couverts. La file est testée fonctionnellement, pas en conditions de production. Le formatage est vérifié avec Laravel Pint.
 
 ---
 
 # 10. Déploiement et exploitation
 
-## 10.1 Prérequis
+## 10.1 Prérequis et installation
 
-- PHP 8.3 ou supérieur ;
-- Composer ;
-- Node.js et npm ;
-- PostgreSQL 18 ou compatible ;
-- extension PHP `pdo_pgsql` ;
-- serveur web ou `php artisan serve` pour le développement.
-
-## 10.2 Installation
+Prérequis : PHP 8.3+ (8.5 en développement), Composer, Node.js/npm, PostgreSQL 18.6 et l'extension `pdo_pgsql`.
 
 ```bash
 composer install
 cp .env.example .env
 php artisan key:generate
-npm install
-npm run build
+npm install && npm run build
 php artisan migrate --seed
 php artisan serve
 ```
 
-## 10.3 Docker
+## 10.2 Docker et environnement
 
-Le projet fournit un `docker-compose.yml` pour PostgreSQL. Le port exposé est `5433` afin d'éviter les conflits avec une instance locale.
+Un `docker-compose.yml` fournit PostgreSQL sur le port `5433` pour éviter les conflits avec une instance locale. `.env.example` pointe vers `127.0.0.1:5433`, la base `volylegume` et l'utilisateur `volylegume`.
 
-```bash
-docker compose up -d
-```
+Variables critiques : `APP_ENV`, `APP_DEBUG`, `APP_KEY`, `APP_URL`, `APP_TIMEZONE`, `APP_LOCALE`, `DB_*`, `SESSION_DRIVER`, `CACHE_STORE`, `QUEUE_CONNECTION`, `HASH_DRIVER`, `ARGON_*`, `BCRYPT_ROUNDS` et `MAIL_*`. En production : `APP_DEBUG=false`, HTTPS obligatoire, cookies sécurisés, secrets hors dépôt et sauvegardes régulières.
 
-La configuration `.env.example` pointe vers :
-
-```text
-DB_CONNECTION=pgsql
-DB_HOST=127.0.0.1
-DB_PORT=5433
-DB_DATABASE=volylegume
-DB_USERNAME=volylegume
-DB_PASSWORD=volylegume_secret
-```
-
-## 10.4 Variables d'environnement
-
-Les variables critiques sont :
-
-- `APP_ENV`, `APP_DEBUG`, `APP_KEY` ;
-- `APP_URL`, `APP_TIMEZONE`, `APP_LOCALE` ;
-- `DB_*` ;
-- `SESSION_DRIVER`, `SESSION_LIFETIME` ;
-- `CACHE_STORE`, `QUEUE_CONNECTION` ;
-- `HASH_DRIVER`, `ARGON_*`, `BCRYPT_ROUNDS` ;
-- `MAIL_*`.
-
-En production :
-
-- `APP_DEBUG=false` ;
-- `APP_ENV=production` ;
-- HTTPS obligatoire ;
-- cookies sécurisés ;
-- secrets stockés hors du dépôt ;
-- sauvegardes régulières.
-
-## 10.5 Migrations et seeders
+## 10.3 Migrations, seeders et comptes
 
 ```bash
 php artisan migrate:fresh --seed
 ```
 
-Le seeder crée :
-
-- deux exploitations ;
-- des parcelles, cultures, campagnes, activités ;
-- des intrants avec alertes de stock ;
-- des traitements et récoltes de démonstration ;
-- des lots de récolte avec mouvements de stock ;
-- des clients, ventes et paiements de démonstration ;
-- des comptes de démonstration.
-
-Comptes principaux :
+Le seeder crée deux exploitations (Ferme Ambohipo et Exploitation Itasy), des parcelles, cultures, campagnes, activités, intrants avec alertes, traitements, récoltes, lots, clients, ventes, paiements et comptes de démonstration.
 
 | Compte | Rôle | Exploitation |
 | --- | --- | --- |
@@ -1516,52 +743,36 @@ Comptes principaux :
 
 Mot de passe commun : `password`.
 
-## 10.6 File d'attente
+## 10.4 File, cache et sessions
 
-La file utilise la base de données :
+La file, le cache et les sessions utilisent la base de données. Le worker se lance avec `php artisan queue:work` et doit être maintenu par un superviseur en production. Les notifications de stock critique peuvent être différées.
+
+## 10.5 Sauvegarde et restauration
 
 ```bash
-php artisan queue:work
+php artisan backup:create
+php artisan backup:restore storage/backups/20261026-153000 --force
 ```
 
-En production, un superviseur (systemd, Supervisor) doit maintenir le worker. Les notifications de stock critique peuvent être différées.
+`backup:create` produit `database.dump` (ou `database.sqlite`), `storage.zip` et `manifest.json` avec pilote, empreintes SHA-256 et nombre de lignes par table. `backup:restore` vérifie les empreintes et les compteurs avant de valider la restauration ; une sauvegarde absente ou altérée est refusée.
 
-## 10.7 Cache et sessions
+Pour une cohérence parfaite, l'application est placée en maintenance, le worker arrêté, puis les caches vidés après restauration. Les variables d'environnement et les journaux ne sont pas inclus et doivent être sauvegardés séparément. Le test `BackupRestoreTest` automatise le cycle sur SQLite et PostgreSQL.
 
-Le cache et les sessions utilisent la base de données. Les tables `cache`, `sessions` et `jobs` sont créées par les migrations.
+## 10.6 Supervision
 
-## 10.8 Sauvegarde
+`GET /health` vérifie la base, la file (`jobs`, `failed_jobs`), l'âge de la dernière sauvegarde et l'écriture dans le stockage. La réponse contient `status`, `checked_at` et le détail des contrôles ; elle renvoie `200` pour `ok` ou `degraded`, et `503` si un contrôle est `down`. L'endpoint peut être protégé par `HEALTH_TOKEN` et `X-Health-Token`.
 
-La sauvegarde doit couvrir :
+La commande `php artisan system:health` réutilise le service avec une sortie lisible ou `--json`, et un code retour `1` lorsque l'état est `down`. Une carte « Supervision opérationnelle » synthétise ces contrôles dans le tableau de bord administrateur. La supervision externe (Sentry, métriques Prometheus, alertes 5xx) reste à intégrer.
 
-- la base PostgreSQL ;
-- les fichiers de stockage ;
-- les variables d'environnement ;
-- les journaux applicatifs.
+## 10.7 Rentabilité, exports et mode hors ligne
 
-Une restauration doit être testée périodiquement.
+`ProfitabilityService` agrège par campagne, culture et parcelle les dépenses, recettes, marges, marge au m², rendements, volumes d'eau et budget consommé. L'écran `/rentabilite` accepte les filtres `from`, `to` et `campaign_id` ; `/rentabilite/impression` produit une vue imprimable. Les exports CSV (`campagnes`, `stocks`, `traitements`, `ventes`, `finances`, `rentabilite`) sont streamés en UTF-8 avec BOM, séparés par des points-virgules et protégés contre les formules de tableur.
 
-## 10.9 Supervision
+Le mode hors ligne repose sur un manifeste PWA, un service worker qui précache `offline.html` et les assets, une file `localStorage` par utilisateur pour les activités et récoltes, et des endpoints `/hors-ligne/activites` et `/hors-ligne/recoltes` idempotents grâce à `client_reference` et à l'index unique `(farm_id, client_reference)`. La synchronisation est relancée au retour du réseau, à l'ouverture de l'application et périodiquement ; les `422` sont des rejets de validation, les erreurs réseau ou `5xx` sont réessayées. Les pages authentifiées ne sont pas mises en cache par le service worker.
 
-La version actuelle ne fournit pas d'intégration de supervision. Il est recommandé d'ajouter :
+## 10.8 Sécurité de production
 
-- un collecteur de logs ;
-- des métriques applicatives ;
-- des alertes sur erreurs 5xx ;
-- un suivi de la file d'attente ;
-- un suivi des temps de réponse.
-
-## 10.10 Sécurité de production
-
-- Désactiver l'inscription publique si elle n'est pas souhaitée.
-- Restreindre l'accès à `/admin` par le rôle de plateforme.
-- Forcer HTTPS et HSTS.
-- Configurer un pare-feu.
-- Limiter les accès à la base.
-- Mettre à jour les dépendances.
-- Auditer les comptes de plateforme.
-- Définir une politique de rétention du journal.
-- Sauvegarder avant chaque migration.
+Désactiver l'inscription publique si nécessaire, restreindre `/admin` au rôle de plateforme, forcer HTTPS et HSTS, configurer un pare-feu, limiter l'accès à la base, mettre à jour les dépendances, auditer les comptes de plateforme, définir la rétention du journal et sauvegarder avant chaque migration.
 
 ---
 
@@ -1569,90 +780,38 @@ La version actuelle ne fournit pas d'intégration de supervision. Il est recomma
 
 ## 11.1 Réalisations
 
-La version livrée apporte :
-
-- une architecture MVC claire avec services métier ;
-- un contrôle d'accès centralisé par 19 Policies ;
-- un rôle global d'administrateur de plateforme ;
-- un journal d'audit transversal ;
-- une isolation multi-exploitations à trois niveaux ;
-- un plan interactif des parcelles, avec relief CSS indicatif, photos et alertes ;
-- l'irrigation, les quotas d'eau et la comparaison entre campagnes ;
-- les photos de parcelles et leur rattachement contrôlé ;
-- les alertes critiques de retard au-delà de trois jours ;
-- la traçabilité publique par QR code ;
-- un module de calendrier cultural idempotent ;
-- des fiches de culture ;
-- une navigation principale lisible et un hub pour les fonctions secondaires ;
-- une gestion de stock robuste ;
-- un blocage serveur des récoltes trop précoces ;
-- une chaîne commerciale complète : lots, clients, ventes, paiements et recettes ;
-- un tableau de bord mis en cache ;
-- une API REST sécurisée ;
-- 123 tests automatisés réussis ;
-- une documentation technique et un README à jour.
+La version livrée apporte une architecture MVC claire avec services métier, 19 Policies, un rôle global d'administrateur de plateforme, un journal d'audit transversal avec purge planifiée, une isolation multi-exploitations à trois niveaux, un plan interactif avec relief CSS indicatif, l'irrigation et les quotas d'eau, les photos de parcelles, les alertes critiques de retard, la traçabilité publique par QR code, le calendrier cultural idempotent comme module personnel, les fiches de culture, une navigation lisible avec hub, une gestion de stock robuste, le blocage serveur des récoltes précoces, une chaîne commerciale complète, un tableau de bord mis en cache, une API REST sécurisée, une sauvegarde/restauration vérifiable, l'analyse de rentabilité, les exports CSV, la supervision `/health`, la PWA hors ligne et 152 tests automatisés.
 
 ## 11.2 Apports techniques
 
-Le projet démontre la maîtrise de :
-
-- Laravel 13 et PHP 8.3 ;
-- Eloquent, relations, scopes et traits ;
-- Policies et Gates ;
-- transactions et verrous pessimistes ;
-- événements et listeners ;
-- files d'attente et notifications ;
-- tests PHPUnit ;
-- sécurité applicative ;
-- modélisation de base de données ;
-- documentation technique.
+Le projet démontre la maîtrise de Laravel 13 et PHP 8.3+ (8.5 en développement), Eloquent et ses relations, les Policies et Gates, les transactions et verrous pessimistes, les événements et listeners, les files d'attente et notifications, PHPUnit, la sécurité applicative, la modélisation de base de données et la documentation technique.
 
 ## 11.3 Limites
 
 - L'historique Git doit être enrichi.
-- La couverture de tests peut être améliorée sur les cas limites.
-- La rétention de l'audit n'est pas automatisée.
+- La couverture de tests peut être améliorée sur les cas limites et l'API.
+- La purge de l'audit dépend du cron de production.
 - L'interface n'a pas de tests end-to-end.
-- Le plan est schématique : il n'embarque ni contours SIG, ni fond cartographique, ni calcul de pente.
-- La supervision de production est absente.
-- La documentation utilisateur est synthétique.
+- Le plan est schématique : ni contours SIG, ni fond cartographique, ni calcul de pente.
+- La supervision se limite aux contrôles internes, sans Sentry ni métriques externes.
+- La file hors ligne ne couvre que les activités et les récoltes.
+- La documentation utilisateur reste synthétique.
 - L'API ne couvre qu'une partie du domaine.
 - Les contraintes SQL fortes ne s'appliquent qu'à PostgreSQL.
 
 ## 11.4 Perspectives
 
-### Court terme
+**Court terme :** commits structurés, tests API complémentaires, restaurations périodiques sur environnement isolé, écran de détail du journal, tests navigateur sur la file hors ligne.
 
-- ajouter des commits structurés et documentés ;
-- compléter les tests API ;
-- ajouter des tests de concurrence sur le stock ;
-- documenter les procédures de sauvegarde et de restauration ;
-- ajouter un écran de détail du journal.
+**Moyen terme :** étendre la file hors ligne aux traitements, ventes et mouvements de stock ; archiver le journal au-delà de la purge ; compléter l'API et sa documentation OpenAPI ; brancher Sentry ou Prometheus sur `/health` ; ajouter des tests end-to-end.
 
-### Moyen terme
-
-- mettre en place une purge ou un archivage du journal ;
-- ajouter l'export CSV/PDF des états ;
-- compléter l'API REST ;
-- ajouter une documentation OpenAPI ;
-- mettre en place une supervision ;
-- ajouter des tests navigateur.
-
-### Long terme
-
-- application mobile hors ligne ;
-- intégration météo ;
-- recommandations agronomiques contextualisées ;
-- gestion multi-devises ;
-- comptabilité analytique ;
-- traçabilité réglementaire ;
-- tableaux de bord avancés.
+**Long terme :** synchronisation native en arrière-plan et application mobile, météo, recommandations agronomiques contextualisées, multi-devises, comptabilité analytique, traçabilité réglementaire et tableaux de bord avancés.
 
 ## 11.5 Conclusion
 
-VolyLegume répond aux besoins structurants d'une exploitation maraîchère : suivi de production, sécurité des accès, isolation des données, traçabilité et pilotage. Les renforcements apportés — Policies, audit, administration plateforme, tests — consolident la conformité au cahier des charges et la qualité de la base technique.
+VolyLegume répond aux besoins structurants d'une exploitation maraîchère : suivi de production, sécurité des accès, isolation des données, traçabilité et pilotage. Les renforcements apportés — Policies, audit, administration plateforme, rentabilité, exports, supervision, PWA hors ligne et tests — consolident la conformité au cahier des charges et la qualité de la base technique.
 
-Les limites identifiées sont principalement des sujets d'exploitation et d'industrialisation : historique Git, supervision, rétention, tests end-to-end. Elles n'empêchent pas la démonstration fonctionnelle et constituent une feuille de route claire pour les prochaines itérations.
+Les limites identifiées concernent surtout l'exploitation et l'industrialisation : historique Git, supervision externe, tests end-to-end et couverture hors ligne partielle. Elles n'empêchent pas la démonstration fonctionnelle et constituent une feuille de route claire.
 
 ---
 
@@ -1662,36 +821,14 @@ Les limites identifiées sont principalement des sujets d'exploitation et d'indu
 
 ```text
 VolyLegume/
-├── app/
-│   ├── Enums/
-│   ├── Events/
-│   ├── Exceptions/
-│   ├── Http/
-│   │   ├── Controllers/
-│   │   │   ├── Admin/
-│   │   │   └── Api/
-│   │   ├── Middleware/
-│   │   ├── Requests/
-│   │   └── Resources/
-│   ├── Jobs/
-│   ├── Listeners/
-│   ├── Models/
-│   │   └── Concerns/
-│   ├── Notifications/
-│   ├── Policies/
-│   │   └── Concerns/
-│   ├── Providers/
-│   ├── Services/
-│   └── Support/
-├── database/
-│   ├── factories/
-│   ├── migrations/
-│   └── seeders/
-├── resources/
-│   └── views/
-├── routes/
-├── tests/
-├── docker/
+├── app/                 Console, Enums, Events, Exceptions, Http, Jobs, Listeners,
+│                        Models, Notifications, Policies, Providers, Services, Support
+├── database/            factories, migrations, seeders
+├── public/              manifest.webmanifest, sw.js, offline.html
+├── resources/           js, views
+├── routes/              web.php, api.php, console.php
+├── tests/               Feature, Unit
+├── docker/              configuration PostgreSQL
 ├── docker-compose.yml
 ├── composer.json
 ├── package.json

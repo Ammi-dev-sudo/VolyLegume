@@ -8,12 +8,16 @@
             <h1 class="text-xl font-semibold text-slate-800">Dépenses</h1>
             <p class="text-sm text-slate-500">Total affiché : <strong>{{ number_format((float) $total, 0, ',', ' ') }} Ar</strong></p>
         </div>
-        @can('manage-finances')
-            <a href="{{ route('expenses.create') }}"
-               class="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                Nouvelle dépense
-            </a>
-        @endcan
+        <div class="flex items-center gap-3">
+            <a href="{{ route('exports.finances', request()->query()) }}"
+               class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Exporter le journal CSV</a>
+            @can('manage-finances')
+                <a href="{{ route('expenses.create') }}"
+                   class="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
+                    Nouvelle dépense
+                </a>
+            @endcan
+        </div>
     </div>
 
     <form method="GET" action="{{ route('expenses.index') }}" class="mb-4 flex flex-wrap items-end gap-3 text-sm">

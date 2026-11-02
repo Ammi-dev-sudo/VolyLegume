@@ -63,7 +63,7 @@
             </p>
         </div>
 
-        <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-end gap-3 text-sm">
+        <form method="GET" action="{{ route('dashboard') }}" class="filter-toolbar flex flex-wrap items-end gap-3 text-sm">
             <div>
                 <label for="from" class="block text-xs font-medium text-slate-600">Du</label>
                 <input type="date" id="from" name="from" value="{{ $filters['from'] ?? '' }}"
@@ -91,41 +91,41 @@
     </div>
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-reveal-group="60">
-        <x-card>
+        <x-card data-tilt>
             <p class="text-xs uppercase tracking-wide text-slate-500">Dépenses</p>
             <p class="mt-1 text-2xl font-semibold text-slate-800"
                data-count="{{ (float) $metrics['expenses'] }}" data-count-decimals="0" data-count-suffix=" Ar">
                 {{ number_format((float) $metrics['expenses'], 0, ',', ' ') }} Ar
             </p>
         </x-card>
-        <x-card>
+        <x-card data-tilt>
             <p class="text-xs uppercase tracking-wide text-slate-500">Recettes</p>
             <p class="mt-1 text-2xl font-semibold text-slate-800"
                data-count="{{ (float) $metrics['revenues'] }}" data-count-decimals="0" data-count-suffix=" Ar">
                 {{ number_format((float) $metrics['revenues'], 0, ',', ' ') }} Ar
             </p>
         </x-card>
-        <x-card>
+        <x-card data-tilt>
             <p class="text-xs uppercase tracking-wide text-slate-500">Marge simplifiée</p>
             <p class="mt-1 text-2xl font-semibold {{ $metrics['margin'] >= 0 ? 'text-emerald-700' : 'text-red-600' }}"
                data-count="{{ (float) $metrics['margin'] }}" data-count-decimals="0" data-count-suffix=" Ar">
                 {{ number_format((float) $metrics['margin'], 0, ',', ' ') }} Ar
             </p>
         </x-card>
-        <x-card>
+        <x-card data-tilt>
             <p class="text-xs uppercase tracking-wide text-slate-500">Campagnes en cours</p>
             <p class="mt-1 text-2xl font-semibold text-slate-800" data-count="{{ (int) $metrics['active_campaigns'] }}">
                 {{ $metrics['active_campaigns'] }}
             </p>
         </x-card>
-        <x-card>
+        <x-card data-tilt>
             <p class="text-xs uppercase tracking-wide text-slate-500">Parcelles</p>
             <p class="mt-1 text-2xl font-semibold text-slate-800" data-count="{{ (int) $metrics['parcels'] }}">
                 {{ $metrics['parcels'] }}
             </p>
             <p class="text-xs text-slate-500">{{ number_format((float) $metrics['area_m2'], 0, ',', ' ') }} m²</p>
         </x-card>
-        <x-card>
+        <x-card data-tilt>
             <p class="text-xs uppercase tracking-wide text-slate-500">Réalisé / prévu</p>
             <p class="mt-1 text-2xl font-semibold text-slate-800"
                @if ($metrics['completion_rate'] !== null)
@@ -138,7 +138,7 @@
                 <p class="mt-1 text-xs font-semibold text-red-600">{{ $metrics['critical_activities'] }} alerte(s) critique(s) &gt; 3 jours</p>
             @endif
         </x-card>
-        <x-card>
+        <x-card data-tilt>
             <p class="text-xs uppercase tracking-wide text-slate-500">Récolte</p>
             <p class="mt-1 text-2xl font-semibold text-slate-800"
                data-count="{{ (float) $metrics['harvested_quantity'] }}" data-count-decimals="1">
@@ -148,7 +148,7 @@
                 {{ $metrics['yield_kg_per_ha'] !== null ? number_format($metrics['yield_kg_per_ha'], 1, ',', ' ') . ' / ha' : 'rendement indisponible' }}
             </p>
         </x-card>
-        <x-card>
+        <x-card data-tilt>
             <p class="text-xs uppercase tracking-wide text-slate-500">Stock récolté disponible</p>
             <p class="mt-1 text-2xl font-semibold text-slate-800"
                data-count="{{ (float) $metrics['produce_available'] }}" data-count-decimals="1">
@@ -156,7 +156,7 @@
             </p>
             <p class="text-xs text-slate-500">{{ $metrics['produce_lots_available'] }} lot(s) disponible(s)</p>
         </x-card>
-        <x-card>
+        <x-card data-tilt>
             <p class="text-xs uppercase tracking-wide text-slate-500">Ventes de la période</p>
             <p class="mt-1 text-2xl font-semibold text-slate-800"
                data-count="{{ (float) $metrics['sales_amount'] }}" data-count-decimals="0" data-count-suffix=" Ar">
@@ -167,7 +167,7 @@
                 {{ number_format((float) $metrics['sales_outstanding'], 0, ',', ' ') }} Ar à encaisser
             </p>
         </x-card>
-        <x-card>
+        <x-card data-tilt>
             <p class="text-xs uppercase tracking-wide text-slate-500">Stocks critiques</p>
             <p class="mt-1 text-2xl font-semibold {{ count($metrics['critical_inputs']) === 0 ? 'text-emerald-700' : 'text-red-600' }}"
                data-count="{{ count($metrics['critical_inputs']) }}">

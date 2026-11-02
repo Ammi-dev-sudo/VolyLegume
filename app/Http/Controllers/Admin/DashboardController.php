@@ -9,16 +9,18 @@ use App\Models\Campaign;
 use App\Models\Farm;
 use App\Models\Input;
 use App\Models\User;
+use App\Services\HealthService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function index(): View
+    public function index(HealthService $health): View
     {
         Gate::authorize('manage', User::class);
 
         return view('admin.dashboard', [
+            'health' => $health->check(),
             'counts' => [
                 'users' => User::query()->count(),
                 'active_users' => User::query()->where('is_active', true)->count(),

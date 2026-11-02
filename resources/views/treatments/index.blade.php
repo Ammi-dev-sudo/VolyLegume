@@ -3,15 +3,19 @@
 @section('title', 'Traitements')
 
 @section('content')
-    <div class="mb-4 flex items-center justify-between">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h1 class="text-xl font-semibold text-slate-800">Traitements phytosanitaires</h1>
             <p class="text-sm text-slate-500">Chaque traitement consomme du stock, crée une activité et fixe une borne de récolte.</p>
         </div>
-        <a href="{{ route('treatments.create') }}"
-           class="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-            Nouveau traitement
-        </a>
+        <div class="flex items-center gap-3">
+            <a href="{{ route('exports.treatments', request()->query()) }}"
+               class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Exporter CSV</a>
+            <a href="{{ route('treatments.create') }}"
+               class="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
+                Nouveau traitement
+            </a>
+        </div>
     </div>
 
     <form method="GET" action="{{ route('treatments.index') }}" class="mb-4 flex flex-wrap items-end gap-3 text-sm">

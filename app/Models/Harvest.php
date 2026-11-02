@@ -16,6 +16,7 @@ class Harvest extends Model
 
     protected $fillable = [
         'farm_id',
+        'client_reference',
         'campaign_id',
         'harvest_code',
         'harvested_at',

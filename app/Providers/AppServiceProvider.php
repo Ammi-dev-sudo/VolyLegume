@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Enums\FarmRole;
 use App\Models\IrrigationEvent;
+use App\Models\PhytosanitaryTreatment;
 use App\Models\ProduceLot;
 use App\Models\ProductionUnit;
 use App\Models\ProductionUnitPhoto;
@@ -13,6 +14,7 @@ use App\Policies\IrrigationEventPolicy;
 use App\Policies\ProduceLotPolicy;
 use App\Policies\ProductionUnitPhotoPolicy;
 use App\Policies\ProductionUnitPolicy;
+use App\Policies\TreatmentPolicy;
 use App\Support\FarmContext;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -42,6 +44,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ProduceLot::class, ProduceLotPolicy::class);
         Gate::policy(IrrigationEvent::class, IrrigationEventPolicy::class);
         Gate::policy(ProductionUnitPhoto::class, ProductionUnitPhotoPolicy::class);
+        Gate::policy(PhytosanitaryTreatment::class, TreatmentPolicy::class);
 
         Notification::resolved(fn (ChannelManager $service) => $service->extend(
             'farm',

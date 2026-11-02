@@ -14,7 +14,7 @@
         rows="{{ $rows }}"
         @if ($placeholder) placeholder="{{ $placeholder }}" @endif
         @if ($required) required @endif
-        class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+        class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
     >{{ $value }}</textarea>
     @error($name)
         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>

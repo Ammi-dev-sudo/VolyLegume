@@ -4,14 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\HarvestTooEarlyException;
 use App\Http\Controllers\Concerns\UsesFarmContext;
+use App\Http\Requests\StoreHarvestRequest;
 use App\Models\Campaign;
 use App\Models\Harvest;
 use App\Services\HarvestService;
 use App\Services\TreatmentService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class HarvestController extends Controller
@@ -50,34 +51,41 @@ class HarvestController extends Controller
         ]);
     }
 
-    public function store(Request $request, HarvestService $service): RedirectResponse
+    public function store(StoreHarvestRequest $request, HarvestService $service): RedirectResponse
     {
         Gate::authorize('create', Harvest::class);
 
         $farmId = $this->farmId();
+        $validated = $request->toHarvestData();
+        $clientReference = $validated['client_reference'] ?? null;
 
-        $validated = $request->validate([
-            'campaign_id' => ['required', Rule::exists('campaigns', 'id')->where('farm_id', $farmId)],
-            'quantity' => ['required', 'numeric', 'gt:0'],
-            'unit' => ['nullable', 'string', 'max:20'],
-            'harvested_at' => ['required', 'date', 'before_or_equal:now'],
-            'quality' => ['nullable', 'string', 'max:50'],
-            'grade' => ['nullable', 'string', 'max:40'],
-            'harvest_code' => ['nullable', 'string', 'max:60'],
-            'harvested_area_m2' => ['nullable', 'numeric', 'gt:0'],
-            'loss_quantity' => ['nullable', 'numeric', 'min:0', 'lte:quantity'],
-            'notes' => ['nullable', 'string'],
-        ]);
+        if ($clientReference !== null) {
+            $existing = Harvest::query()
+                ->forFarm($farmId)
+                ->where('client_reference', $clientReference)
+                ->first();
+
+            if ($existing !== null) {
+                return redirect()
+                    ->route('campaigns.show', $existing->campaign_id)
+                    ->with('status', 'Cette récolte a déjà été synchronisée.');
+            }
+        }
 
         $campaign = Campaign::query()->forFarm($farmId)->with('crop')->findOrFail($validated['campaign_id']);
 
         try {
-            $service->record($campaign, $request->user(), $validated);
+            $harvest = $service->record($campaign, $request->user(), $validated);
         } catch (HarvestTooEarlyException $exception) {
             return back()->withInput()->withErrors(['harvested_at' => $exception->getMessage()]);
+        } catch (UniqueConstraintViolationException) {
+            $harvest = Harvest::query()
+                ->forFarm($farmId)
+                ->where('client_reference', $clientReference)
+                ->firstOrFail();
         }
 
-        return redirect()->route('campaigns.show', $campaign)->with('status', 'Récolte enregistrée.');
+        return redirect()->route('campaigns.show', $harvest->campaign_id)->with('status', 'Récolte enregistrée.');
     }
 
     public function show(Harvest $harvest): View

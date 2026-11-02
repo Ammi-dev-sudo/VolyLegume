@@ -22,7 +22,7 @@ class HarvestService
     ) {}
 
     /**
-     * @param  array{quantity: float|int|string, harvested_at: string, unit?: string, quality?: ?string, notes?: ?string, harvest_code?: ?string, harvested_area_m2?: float|int|string|null, loss_quantity?: float|int|string|null, grade?: ?string}  $data
+     * @param  array{client_reference?: ?string, quantity: float|int|string, harvested_at: string, unit?: string, quality?: ?string, notes?: ?string, harvest_code?: ?string, harvested_area_m2?: float|int|string|null, loss_quantity?: float|int|string|null, grade?: ?string}  $data
      *
      * @throws HarvestTooEarlyException
      */
@@ -46,6 +46,7 @@ class HarvestService
 
             $harvest = $lockedCampaign->harvests()->create([
                 'farm_id' => $lockedCampaign->farm_id,
+                'client_reference' => $data['client_reference'] ?? null,
                 'harvested_at' => $harvestedAt,
                 'quantity' => $quantity,
                 'unit' => $data['unit'] ?? $lockedCampaign->crop->production_unit,

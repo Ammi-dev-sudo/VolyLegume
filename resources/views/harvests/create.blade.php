@@ -16,7 +16,8 @@
         </div>
 
         <x-card>
-            <form method="POST" action="{{ route('harvests.store') }}" class="space-y-4">
+            <form method="POST" action="{{ route('harvests.store') }}" class="space-y-4"
+                  data-offline-form data-offline-action="{{ route('offline.harvests') }}" data-offline-label="Récolte">
                 @csrf
 
                 <x-select-field name="campaign_id" label="Campagne" required

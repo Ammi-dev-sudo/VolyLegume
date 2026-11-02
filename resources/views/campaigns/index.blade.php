@@ -9,6 +9,8 @@
             <p class="text-sm text-slate-500">{{ $campaigns->total() }} campagne(s).</p>
         </div>
         <div class="flex items-center gap-3">
+            <a href="{{ route('exports.campaigns', request()->query()) }}"
+               class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Exporter CSV</a>
             <form method="GET" action="{{ route('campaigns.index') }}" class="flex items-center gap-2 text-sm">
                 <label for="status" class="text-slate-600">Statut :</label>
                 <select id="status" name="status" class="rounded border border-slate-300 px-2 py-1.5" onchange="this.form.submit()">

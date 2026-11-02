@@ -13,7 +13,7 @@
         id="{{ $name }}"
         name="{{ $name }}"
         @if ($required) required @endif
-        class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+        class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
     >
         @if ($placeholder !== null)
             <option value="">{{ $placeholder }}</option>

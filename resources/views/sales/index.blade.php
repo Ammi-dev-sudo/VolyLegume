@@ -8,12 +8,16 @@
             <h1 class="text-xl font-semibold text-slate-800">Ventes</h1>
             <p class="text-sm text-slate-500">Sorties de stock, encaissements et recettes générées automatiquement.</p>
         </div>
-        @can('create', App\Models\Sale::class)
-            <a href="{{ route('sales.create') }}"
-               class="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                Nouvelle vente
-            </a>
-        @endcan
+        <div class="flex items-center gap-3">
+            <a href="{{ route('exports.sales', request()->query()) }}"
+               class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Exporter CSV</a>
+            @can('create', App\Models\Sale::class)
+                <a href="{{ route('sales.create') }}"
+                   class="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
+                    Nouvelle vente
+                </a>
+            @endcan
+        </div>
     </div>
 
     <div class="mb-4 grid gap-4 sm:grid-cols-3">

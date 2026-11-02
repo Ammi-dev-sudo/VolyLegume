@@ -83,6 +83,28 @@ class StockManagementTest extends TestCase
         Notification::assertNotSentTo($agent, StockCriticalNotification::class);
     }
 
+    public function test_le_verrou_recharge_le_stock_et_evite_une_surconsommation_concurrente(): void
+    {
+        $input = $this->makeInput();
+        $actor = $this->memberOf($input->farm);
+        app(StockService::class)->receive($input, 5, $actor, 'Achat');
+
+        $stale = Input::query()->findOrFail($input->id);
+        $this->assertSame(5.0, (float) $stale->quantity);
+
+        app(StockService::class)->consume($input, 4, $actor, 'Première sortie');
+
+        try {
+            app(StockService::class)->consume($stale, 4, $actor, 'Sortie concurrente');
+            $this->fail('La seconde sortie aurait dû être refusée.');
+        } catch (InsufficientStockException) {
+            // attendu : le service relit la quantité verrouillée, pas l'instance périmée.
+        }
+
+        $this->assertSame(1.0, (float) $input->fresh()->quantity);
+        $this->assertDatabaseCount('stock_movements', 2);
+    }
+
     public function test_un_ajustement_negatif_est_accepte_et_trace(): void
     {
         $input = $this->makeInput();

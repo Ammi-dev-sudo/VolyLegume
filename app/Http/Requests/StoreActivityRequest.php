@@ -29,6 +29,7 @@ class StoreActivityRequest extends FormRequest
         $farmId = app(FarmContext::class)->id();
 
         return [
+            'client_reference' => ['nullable', 'string', 'max:64'],
             'campaign_id' => ['required', Rule::exists('campaigns', 'id')->where('farm_id', $farmId)],
             'calendar_step_id' => ['nullable', Rule::exists('calendar_steps', 'id')->where('farm_id', $farmId)],
             'type' => ['required', Rule::enum(ActivityType::class)],

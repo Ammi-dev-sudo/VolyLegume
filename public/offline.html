@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#065f46">
+    <title>VolyLegume — Hors connexion</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+    <style>
+        :root {
+            color-scheme: light;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: linear-gradient(145deg, #ecfdf5 0%, #f8fafc 45%, #fef3c7 100%);
+            color: #0f172a;
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        }
+
+        main {
+            width: min(100%, 440px);
+            border: 1px solid #d1fae5;
+            border-radius: 24px;
+            background: #ffffff;
+            padding: 32px;
+            box-shadow: 0 24px 60px -30px rgb(6 95 70 / 45%);
+            text-align: center;
+        }
+
+        img {
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+            border-radius: 18px;
+            background: #065f46;
+            padding: 8px;
+        }
+
+        h1 {
+            margin: 20px 0 8px;
+            font-size: 1.35rem;
+            color: #064e3b;
+        }
+
+        p {
+            margin: 0 0 20px;
+            line-height: 1.6;
+            color: #475569;
+        }
+
+        button {
+            width: 100%;
+            border: 0;
+            border-radius: 12px;
+            background: #047857;
+            color: #ffffff;
+            padding: 12px 18px;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button:hover,
+        button:focus-visible {
+            background: #065f46;
+        }
+
+        small {
+            display: block;
+            margin-top: 16px;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <img src="/images/logo-sm.png" alt="VolyLegume">
+        <h1>Vous êtes hors connexion</h1>
+        <p>
+            Les activités et les récoltes saisies depuis le formulaire dédié sont
+            conservées sur cet appareil, puis synchronisées au retour du réseau.
+        </p>
+        <button type="button" onclick="window.location.reload()">Réessayer</button>
+        <small>
+            Si la page ne se charge pas, vérifiez votre connexion puis rouvrez
+            l’application depuis l’écran d’accueil.
+        </small>
+    </main>
+</body>
+</html>

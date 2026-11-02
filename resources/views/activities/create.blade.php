@@ -7,7 +7,8 @@
         <h1 class="mb-4 text-xl font-semibold text-slate-800">Nouvelle activité</h1>
 
         <x-card>
-            <form method="POST" action="{{ route('activities.store') }}">
+            <form method="POST" action="{{ route('activities.store') }}"
+                  data-offline-form data-offline-action="{{ route('offline.activities') }}" data-offline-label="Activité">
                 @csrf
                 @include('activities._form', ['activity' => $activity])
 

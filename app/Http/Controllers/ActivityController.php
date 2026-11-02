@@ -10,6 +10,7 @@ use App\Models\Activity;
 use App\Models\Campaign;
 use App\Models\ProductionUnit;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -78,11 +79,35 @@ class ActivityController extends Controller
     {
         Gate::authorize('create', Activity::class);
 
-        $activity = Activity::create($request->toActivityAttributes() + [
-            'farm_id' => $this->farmId(),
-            'created_by' => $request->user()->id,
-            'overdue_consequence' => $this->consequenceFor($request->toActivityAttributes()['type'] ?? null),
-        ]);
+        $farmId = $this->farmId();
+        $attributes = $request->toActivityAttributes();
+        $clientReference = $attributes['client_reference'] ?? null;
+
+        if ($clientReference !== null) {
+            $existing = Activity::query()
+                ->forFarm($farmId)
+                ->where('client_reference', $clientReference)
+                ->first();
+
+            if ($existing !== null) {
+                return redirect()
+                    ->route('activities.show', $existing)
+                    ->with('status', 'Cette activité a déjà été synchronisée.');
+            }
+        }
+
+        try {
+            $activity = Activity::create($attributes + [
+                'farm_id' => $farmId,
+                'created_by' => $request->user()->id,
+                'overdue_consequence' => $this->consequenceFor($attributes['type'] ?? null),
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            $activity = Activity::query()
+                ->forFarm($farmId)
+                ->where('client_reference', $clientReference)
+                ->firstOrFail();
+        }
 
         return redirect()->route('activities.show', $activity)->with('status', 'Activité enregistrée.');
     }

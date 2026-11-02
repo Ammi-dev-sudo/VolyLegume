@@ -18,6 +18,7 @@ class Activity extends Model
 
     protected $fillable = [
         'farm_id',
+        'client_reference',
         'campaign_id',
         'calendar_step_id',
         'type',

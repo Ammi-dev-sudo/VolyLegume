@@ -35,6 +35,11 @@ class ModuleController extends Controller
                         'description' => 'Consultez les activités planifiées, semaine après semaine.',
                         'route' => 'calendar.index',
                     ],
+                    [
+                        'title' => 'Rentabilité',
+                        'description' => 'Comparez rendement, dépenses, recettes et eau par culture et par parcelle.',
+                        'route' => 'profitability.index',
+                    ],
                 ],
             ],
             [

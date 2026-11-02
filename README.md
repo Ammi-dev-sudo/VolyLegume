@@ -21,6 +21,11 @@ Application web de gestion d'exploitations maraîchères, projet fil rouge du BU
 - Clients (particuliers, revendeurs, restaurants, coopératives), ventes multi-lignes, remises, paiements partiels et annulation avec restitution du stock
 - Recette générée automatiquement par vente et reste à encaisser visible sur les ventes et le tableau de bord
 - Finances simplifiées : dépenses et recettes par campagne, tableaux de bord et indicateurs (rendement, taux de réalisation, alertes stock, rentabilité)
+- Rentabilité par campagne, culture et parcelle : marge, marge/m², rendement, eau consommée et budget, avec filtres de période
+- Exports CSV (campagnes, stocks, traitements, ventes, finances) et états imprimables / PDF via le navigateur
+- Application installable (PWA) : page hors connexion et file locale pour les activités et récoltes, synchronisée avec idempotence au retour du réseau
+- Supervision opérationnelle : endpoint `/health`, commande `system:health` et carte dédiée dans l'administration
+- Purge planifiée du journal d'audit, avec conservation prolongée des actions sensibles
 - Recherche, pagination, journal d'audit (`audit_logs`), notifications, tâche différée (queue), cache
 - Autorisations centralisées par Policies Laravel et contexte d'exploitation
 - API REST (Sanctum) : consultation des campagnes et saisie des activités
@@ -40,12 +45,16 @@ Application web de gestion d'exploitations maraîchères, projet fil rouge du BU
 
 ## Prérequis
 
-- PHP 8.3+ avec les extensions `pdo_pgsql`, `gd` (rendu des QR codes) et (pour les tests) `pdo_sqlite`
+- PHP 8.3+ avec les extensions `pdo_pgsql`, `gd` (rendu des QR codes), `zip` (sauvegardes) et, pour les tests, `pdo_sqlite`
 - Composer, Node.js 20+, Docker (ou un PostgreSQL local)
+- Pour les sauvegardes PostgreSQL : `pg_dump` et `pg_restore` en version 18
 
 ```bash
 # Debian/Ubuntu — extensions PHP manquantes
-sudo apt-get install -y php8.5-pgsql php8.5-sqlite3
+sudo apt-get install -y php8.5-pgsql php8.5-sqlite3 php8.5-zip
+
+# Client PostgreSQL 18 (après ajout du dépôt PGDG si nécessaire)
+sudo apt-get install -y postgresql-client-18
 ```
 
 ## Installation
@@ -96,7 +105,7 @@ Puis, dans les deux cas :
 php artisan migrate:fresh --seed
 ```
 
-25 migrations créent le schéma complet (dont la table `personal_access_tokens` de Sanctum) ; le seeder (`DatabaseSeeder`) peuple deux exploitations fictives avec leurs comptes, parcelles, cultures, campagnes, stocks, opérations, lots de récolte, clients, ventes et paiements (voir plus bas).
+32 migrations créent le schéma complet (dont la table `personal_access_tokens` de Sanctum) ; le seeder (`DatabaseSeeder`) peuple deux exploitations fictives avec leurs comptes, parcelles, cultures, campagnes, stocks, opérations, lots de récolte, clients, ventes et paiements (voir plus bas).
 
 #### Réglage PostgreSQL « gros volumes »
 
@@ -190,6 +199,10 @@ Mot de passe commun : **`password`** (voir `DatabaseSeeder`).
 - **Chaîne commerciale** : clients de démonstration, ventes reliées aux lots, recettes générées et paiement partiel mobile money
 - **Campagne sans opération** : Exploitation Itasy, prête à être explorée sans données préalables
 
+- **Rentabilité** : ouvrir `/rentabilite`, filtrer sur une campagne, comparer les marges par culture et par parcelle, puis utiliser « Imprimer / PDF » ou l'export CSV
+- **Saisie hors connexion** : ouvrir « Nouvelle activité » ou « Nouvelle récolte », couper le réseau dans les outils du navigateur, enregistrer (la bannière indique la file locale), rétablir le réseau et cliquer sur « Synchroniser »
+- **Supervision** : consulter `/health` ou exécuter `php artisan system:health --json`, puis vérifier la carte « Supervision opérationnelle » du tableau de bord administrateur
+
 Les données sont fictives ; aucune dose, délai ou produit du seeder ne constitue une prescription agronomique.
 
 ## API REST
@@ -212,7 +225,7 @@ Chaque réponse inclut `X-Farm-Id` et des en-têtes de pagination (`X-Per-Page`,
 php artisan test           # ou : vendor/bin/phpunit
 ```
 
-La suite (123 tests, 419 assertions) tourne sur SQLite en mémoire et couvre l'authentification API, l'isolation entre exploitations, les rôles et Policies, les stocks, le délai avant récolte, la chaîne commerciale (lots, ventes, paiements, annulation), les finances, le plan interactif, l'irrigation, les photos de parcelles, les alertes de retard critique, la traçabilité QR, le hub de modules, le journal d'audit, l'administration plateforme et l'API.
+La suite (152 tests, 544 assertions) tourne sur SQLite en mémoire et couvre l'authentification API, l'isolation entre exploitations, les rôles et Policies, les stocks et leur verrouillage, le délai avant récolte, la chaîne commerciale (lots, ventes, paiements, annulation), les finances, la rentabilité, les exports CSV, le plan interactif, l'irrigation, les photos de parcelles, les alertes de retard critique, la traçabilité QR, le hub de modules, le journal d'audit et sa purge, l'administration plateforme, la supervision, la synchronisation hors ligne, l'API et le cycle sauvegarde/restauration.
 
 À chaque `push` et `pull request`, GitHub Actions (`.github/workflows/ci.yml`) rejoue la suite sur SQLite puis sur PostgreSQL 18, vérifie le formatage avec Pint et compile les assets Vite. Le workflow contrôle aussi que les compteurs ci-dessus restent synchronisés avec le rapport JUnit ; mettez-les à jour lorsque la suite évolue.
 
@@ -239,15 +252,88 @@ Chaque écriture métier crée une ligne dans `audit_logs` : exploitation, utili
 
 Le journal est consultable par les responsables de l'exploitation (`/journal`) et, de façon transversale, par un administrateur de plateforme (`/admin/journal`).
 
+## Rentabilité, exports et impression
+
+L'écran `/rentabilite` agrège les dépenses, recettes et consommations d'eau par campagne, culture et parcelle. Les surfaces utilisées sont les surfaces cultivées cumulées, les campagnes annulées sont exclues et les montants sont exprimés en Ariary (Ar). Les filtres `from`, `to` et `campaign_id` sont conservés dans les liens d'export.
+
+- `GET /rentabilite/export.csv` : rentabilité détaillée ;
+- `GET /rentabilite/impression` : vue imprimable, à enregistrer en PDF depuis le navigateur ;
+- `GET /exports/campagnes.csv`, `/exports/stocks.csv`, `/exports/traitements.csv`, `/exports/ventes.csv`, `/exports/finances.csv` : exports métier.
+
+Les CSV utilisent le point-virgule, un BOM UTF-8 et neutralisent les valeurs commençant par `=`, `+`, `-` ou `@` pour éviter l'exécution de formules dans un tableur.
+
+## Mode hors connexion (PWA)
+
+L'application est installable depuis un navigateur compatible (manifeste `public/manifest.webmanifest`). Le service worker met en cache la page de secours `public/offline.html` et les assets statiques ; les pages authentifiées ne sont volontairement pas mises en cache afin d'éviter toute fuite entre comptes sur un appareil partagé.
+
+Les formulaires « Nouvelle activité » et « Nouvelle récolte » sont marqués `data-offline-form`. Hors connexion, la saisie est conservée dans `localStorage` sous le compte courant, puis renvoyée vers `/hors-ligne/activites` ou `/hors-ligne/recoltes` au retour du réseau. Chaque envoi porte une référence cliente unique : un renvoi du même formulaire ne crée pas de doublon. Une bannière indique les saisies en attente, permet de relancer la synchronisation et signale les rejets de validation.
+
+Limites actuelles : la file locale ne couvre que les activités et les récoltes ; elle dépend du navigateur et du stockage local, et ne remplace pas une application mobile avec synchronisation en arrière-plan.
+
+## Supervision et rétention
+
+`GET /health` renvoie l'état de la base, de la file d'attente, de la sauvegarde la plus récente et du stockage. La réponse est `200` si l'état est `ok` ou `degraded`, `503` si un service est `down`.
+
+```bash
+php artisan system:health          # code retour 1 si l'état est down
+php artisan system:health --json
+```
+
+Pour protéger l'endpoint, définissez `HEALTH_TOKEN` : le header `X-Health-Token` devient alors obligatoire. Les seuils sont configurables dans `config/health.php` (`backup_max_age_hours`, `queue_backlog_warning`, `failed_jobs_warning`).
+
+La commande `audit:prune` supprime les entrées anciennes tout en conservant plus longtemps les actions sensibles (`expense.`, `revenue.`, `sale.`, `payment.`, `treatment.`, `harvest.`, `produce_lot.`, `stock_movement.`) :
+
+```bash
+php artisan audit:prune --days=365 --keep-days=1825 --dry-run
+php artisan audit:prune --days=365 --keep-days=1825 --farm=1
+```
+
+Elle est planifiée chaque jour à 02:30 (`routes/console.php`). Pour l'activer en production, un cron doit exécuter `php artisan schedule:run` chaque minute.
+
 ## Administration plateforme
 
 Les comptes marqués `is_platform_admin` accèdent à `/admin` : tableau de bord global, gestion des comptes (activation, rôle plateforme, rattachements) et supervision des exploitations. Les autres utilisateurs reçoivent une réponse 403.
+
+## Sauvegarde et restauration
+
+Deux commandes Artisan produisent et restaurent une sauvegarde vérifiable de la base et des fichiers publics (`storage/app/public` : photos de parcelles, QR codes, pièces des lots).
+
+```bash
+# Sauvegarde dans storage/backups/<horodatage> (base par défaut + storage/app/public)
+php artisan backup:create
+
+# Répertoire, connexion et stockage explicites
+php artisan backup:create --path=/var/backups/volylegume --database=pgsql \
+  --storage=/var/www/volylegume/storage/app/public
+
+# Restauration (confirmation demandée ; --force pour automatiser)
+php artisan backup:restore storage/backups/20261026-153000 --force
+```
+
+Chaque sauvegarde contient :
+
+- `database.dump` (format custom `pg_dump`) ou `database.sqlite` (instantané `VACUUM INTO`) ;
+- `storage.zip` (fichiers publics) ;
+- `manifest.json` : date, pilote, empreintes SHA-256 et nombre de lignes par table.
+
+La restauration contrôle les empreintes et les compteurs de lignes ; une archive altérée est refusée. Pour une sauvegarde parfaitement cohérente, passez l'application en maintenance pendant l'opération. En production, arrêtez aussi le worker, restaurez, puis videz les caches :
+
+```bash
+php artisan down
+php artisan backup:restore /var/backups/volylegume/20261026-153000 --force
+php artisan optimize:clear
+php artisan up
+```
+
+Prérequis : extension PHP `zip` et, pour PostgreSQL, `pg_dump`/`pg_restore` de la même version majeure que le serveur (18). Le cycle complet est couvert par `tests/Feature/BackupRestoreTest.php`, exécuté sur SQLite et PostgreSQL en CI.
 
 ## Commandes utiles
 
 ```bash
 php artisan migrate:fresh --seed   # réinitialiser la base de démonstration
 php artisan produce:backfill-lots  # créer les lots manquants des récoltes existantes
+php artisan backup:create          # sauvegarder la base et les fichiers publics
+php artisan backup:restore <path>  # restaurer et vérifier une sauvegarde
 php artisan storage:link           # liens de stockage
 php artisan queue:work             # worker de file d'attente
 php artisan test                   # suite de tests
