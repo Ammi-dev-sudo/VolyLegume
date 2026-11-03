@@ -595,6 +595,81 @@ function initFarmMap() {
     setMode('plan');
 }
 
+/**
+ * Thème clair / sombre / système, mémorisé dans le navigateur.
+ */
+function initTheme() {
+    const storageKey = 'volylegume.theme';
+    const root = document.documentElement;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const buttons = [...document.querySelectorAll('button[data-theme-choice]')];
+
+    const storedChoice = () => {
+        try {
+            const value = window.localStorage.getItem(storageKey);
+
+            return value === 'light' || value === 'dark' ? value : 'system';
+        } catch (error) {
+            return 'system';
+        }
+    };
+
+    const apply = (choice) => {
+        const theme = choice === 'system' ? (media.matches ? 'dark' : 'light') : choice;
+
+        root.setAttribute('data-theme', theme);
+        root.setAttribute('data-theme-choice', choice);
+        root.style.colorScheme = theme;
+
+        const meta = document.querySelector('meta[name="theme-color"]');
+
+        if (meta) {
+            const color = theme === 'dark'
+                ? meta.getAttribute('data-dark-color')
+                : meta.getAttribute('data-light-color');
+
+            if (color) {
+                meta.setAttribute('content', color);
+            }
+        }
+
+        buttons.forEach((button) => {
+            const active = button.dataset.themeChoice === choice;
+
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    };
+
+    buttons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const choice = button.dataset.themeChoice;
+
+            try {
+                window.localStorage.setItem(storageKey, choice);
+            } catch (error) {
+                // Le choix reste actif pour la page courante.
+            }
+
+            apply(choice);
+        });
+    });
+
+    media.addEventListener('change', () => {
+        if (storedChoice() === 'system') {
+            apply('system');
+        }
+    });
+
+    window.addEventListener('storage', (event) => {
+        if (event.key === storageKey) {
+            apply(storedChoice());
+        }
+    });
+
+    apply(storedChoice());
+}
+
 function initServiceWorker() {
     if (!import.meta.env.PROD || !('serviceWorker' in navigator)) {
         return;
@@ -608,6 +683,7 @@ function initServiceWorker() {
 }
 
 function init() {
+    initTheme();
     initServiceWorker();
     initOffline();
     initReveal();

@@ -56,7 +56,7 @@
 
     <div class="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
-            <h1 class="text-xl font-semibold text-slate-800">Tableau de bord</h1>
+            <h2 class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Indicateurs clés</h2>
             <p class="text-sm text-slate-500">
                 Période du {{ \Illuminate\Support\Carbon::parse($metrics['period']['from'])->format('d/m/Y') }}
                 au {{ \Illuminate\Support\Carbon::parse($metrics['period']['to'])->format('d/m/Y') }}

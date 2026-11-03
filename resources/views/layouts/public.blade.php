@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#065f46">
+    <meta name="theme-color" content="#154b32" data-light-color="#154b32" data-dark-color="#0a1310">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>{{ config('app.name', 'VolyLegume') }} — @yield('title', 'Traçabilité')</title>
@@ -11,6 +11,7 @@
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('images/apple-touch-icon.png') }}">
+    @include('partials.theme-init')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="trace-body min-h-screen bg-slate-50 text-slate-800">
@@ -22,6 +23,9 @@
             <div class="leading-tight">
                 <p class="text-base font-bold tracking-tight">VolyLegume</p>
                 <p class="text-[11px] uppercase tracking-[0.18em] text-emerald-200/80">Traçabilité des récoltes</p>
+            </div>
+            <div class="ml-auto">
+                <x-theme-toggle variant="on-dark" />
             </div>
         </div>
     </header>

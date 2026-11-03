@@ -78,11 +78,11 @@
     ];
 
     $role = $currentRole ?? null;
-    $roleBadge = match ($role) {
-        \App\Enums\FarmRole::Admin => ['bg-amber-300/20 text-amber-100 ring-amber-200/40', 'bg-amber-400'],
-        \App\Enums\FarmRole::Responsable => ['bg-emerald-300/20 text-emerald-50 ring-emerald-200/40', 'bg-emerald-300'],
-        \App\Enums\FarmRole::Agent => ['bg-sky-300/20 text-sky-50 ring-sky-200/40', 'bg-sky-300'],
-        default => ['bg-white/10 text-white ring-white/20', 'bg-white/60'],
+    $roleTone = match ($role) {
+        \App\Enums\FarmRole::Admin => 'admin',
+        \App\Enums\FarmRole::Responsable => 'manager',
+        \App\Enums\FarmRole::Agent => 'agent',
+        default => 'default',
     };
 @endphp
 <!DOCTYPE html>
@@ -92,18 +92,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="user-id" content="{{ auth()->id() }}">
-    <meta name="theme-color" content="#155e63">
+    <meta name="theme-color" content="#f4f6f2" data-light-color="#f4f6f2" data-dark-color="#0a1310">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>{{ config('app.name', 'VolyLegume') }} — @yield('title', 'Gestion maraîchère')</title>
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('images/apple-touch-icon.png') }}">
+    @include('partials.theme-init')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="workspace-body relative min-h-screen overflow-x-hidden bg-slate-50 text-slate-800">
+<body class="workspace-body relative min-h-screen overflow-x-hidden">
     <div id="offline-banner" hidden
          class="group fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-xl items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700 shadow-xl shadow-slate-900/10 data-[state=offline]:border-amber-300 data-[state=offline]:bg-amber-50 data-[state=pending]:border-sky-300 data-[state=pending]:bg-sky-50 data-[state=syncing]:border-sky-300 data-[state=syncing]:bg-sky-50 data-[state=error]:border-red-300 data-[state=error]:bg-red-50 data-[state=success]:border-emerald-300 data-[state=success]:bg-emerald-50">
         <span aria-hidden="true" class="mt-0.5 inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-slate-400 group-data-[state=offline]:bg-amber-500 group-data-[state=pending]:bg-sky-500 group-data-[state=syncing]:bg-sky-500 group-data-[state=error]:bg-red-500 group-data-[state=success]:bg-emerald-500"></span>
@@ -122,20 +123,16 @@
         </button>
     </div>
 
-    <div aria-hidden="true" class="pointer-events-none fixed -left-40 top-24 -z-10 h-96 w-96 rounded-full bg-emerald-300/20 blur-3xl animate-blob"></div>
-    <div aria-hidden="true" class="pointer-events-none fixed -right-32 bottom-0 -z-10 h-96 w-96 rounded-full bg-amber-200/30 blur-3xl animate-blob" style="animation-delay: -7s"></div>
-
-    <header class="workspace-header sticky top-0 z-40 animate-fade-in-down border-b border-emerald-950/20 bg-gradient-to-r from-emerald-950 via-emerald-800 to-emerald-700 text-white shadow-lg shadow-emerald-950/20">
-        <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+    <header class="workspace-header">
+        <div class="workspace-header-inner">
             <div class="workspace-brand-group">
-                <a href="{{ route('dashboard') }}" class="group flex items-center gap-3 rounded-xl px-1 py-1 transition hover:bg-white/5">
-                    <span class="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-white/95 p-1 shadow-md ring-1 ring-white/30 transition duration-300 group-hover:scale-105 group-hover:rotate-2">
-                        <img src="{{ asset('images/logo-sm.png') }}" alt="Logo VolyLegume" class="h-full w-full object-contain">
-                        <span aria-hidden="true" class="absolute inset-0 rounded-xl ring-1 ring-inset ring-emerald-900/10"></span>
+                <a href="{{ route('dashboard') }}" class="workspace-brand">
+                    <span class="workspace-logo">
+                        <img src="{{ asset('images/logo-sm.png') }}" alt="Logo VolyLegume">
                     </span>
-                    <span class="leading-tight">
-                        <span class="block text-lg font-bold tracking-tight">VolyLegume</span>
-                        <span class="block text-[11px] uppercase tracking-[0.18em] text-emerald-200/80">Gestion maraîchère</span>
+                    <span>
+                        <span class="workspace-brand-name">VolyLegume</span>
+                        <span class="workspace-brand-tag">Gestion maraîchère</span>
                     </span>
                 </a>
                 @if ($currentFarm)
@@ -144,34 +141,33 @@
                             title="Masquer ou afficher le menu">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                             <path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" />
-                            <path d="m15 8 4 4-4 4" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
                         <span>Menu</span>
                     </button>
                 @endif
             </div>
 
-            <div class="flex flex-wrap items-center gap-2 text-sm sm:gap-3">
+            <div class="workspace-header-actions">
                 @if ($currentFarm)
-                    <a href="{{ route('farms.index') }}"
-                       class="group hidden items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 ring-1 ring-white/15 transition hover:bg-white/15 sm:inline-flex">
-                        <span class="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_0_4px_rgba(110,231,183,0.15)] animate-pulse-soft"></span>
-                        <span class="max-w-[12rem] truncate">{{ $currentFarm->name }}</span>
-                        <span class="text-xs text-emerald-100/70 group-hover:text-white">Changer</span>
+                    <a href="{{ route('farms.index') }}" class="workspace-farm-switch">
+                        <span class="dot" aria-hidden="true"></span>
+                        <span class="truncate">{{ $currentFarm->name }}</span>
+                        <span class="hint">Changer</span>
                     </a>
                 @endif
 
                 @if ($role)
-                    <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 {{ $roleBadge[0] }}">
-                        <span class="h-1.5 w-1.5 rounded-full {{ $roleBadge[1] }}"></span>
+                    <span class="workspace-role-badge workspace-role-badge--{{ $roleTone }}">
+                        <span class="dot" aria-hidden="true"></span>
                         {{ $role->label() }}
                     </span>
                 @endif
 
+                <x-theme-toggle />
+
                 @if (auth()->user()?->isPlatformAdmin())
-                    <a href="{{ route('admin.dashboard') }}"
-                       class="inline-flex items-center gap-1.5 rounded-full bg-amber-300/20 px-3 py-1.5 text-amber-50 ring-1 ring-amber-200/40 transition hover:bg-amber-300/30">
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <a href="{{ route('admin.dashboard') }}" class="workspace-action workspace-action--admin">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                             <path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4z" stroke-linecap="round" stroke-linejoin="round" />
                             <path d="M9.5 12l1.8 1.8L15 10" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
@@ -179,9 +175,8 @@
                     </a>
                 @endif
 
-                <a href="{{ route('notifications.index') }}"
-                   class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 ring-1 ring-white/10 transition hover:bg-white/10 hover:ring-white/25">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <a href="{{ route('notifications.index') }}" class="workspace-action">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5" stroke-linecap="round" stroke-linejoin="round" />
                         <path d="M9 17a3 3 0 0 0 6 0" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
@@ -197,9 +192,8 @@
 
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit"
-                            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 ring-1 ring-white/10 transition hover:bg-red-500/20 hover:ring-red-300/40">
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <button type="submit" class="workspace-action workspace-logout">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                             <path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3" stroke-linecap="round" stroke-linejoin="round" />
                             <path d="M16 17l5-5-5-5M21 12H9" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
@@ -224,10 +218,9 @@
                         @endphp
                         <a href="{{ route($item['route']) }}"
                            @if ($active) aria-current="page" @endif
-                           style="--nav-index: {{ $loop->index }}"
                            title="{{ $item['label'] }}"
                            data-label="{{ $item['label'] }}"
-                           class="workspace-nav-link nav-link{{ $active ? ' is-active' : '' }}">
+                           class="workspace-nav-link{{ $active ? ' is-active' : '' }}">
                             <span class="workspace-nav-icon" aria-hidden="true">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                                     {!! $item['icon'] !!}
@@ -255,7 +248,7 @@
         @endif
 
         <div class="workspace-content">
-            <main class="workspace-main mx-auto max-w-7xl px-4 py-6">
+            <main class="workspace-main">
                 @if (session('status'))
                     <div class="mb-4 flex items-start gap-3 animate-slide-in-right rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-emerald-900 shadow-sm">
                         <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">✓</span>
@@ -277,15 +270,15 @@
                 @yield('content')
             </main>
 
-            <footer class="workspace-footer mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 pb-6 pt-2 text-xs text-slate-400">
+            <footer class="workspace-footer flex flex-wrap items-center justify-between gap-2">
                 <span class="inline-flex items-center gap-2">
                     <img src="{{ asset('images/favicon-32.png') }}" alt="" class="h-5 w-5 rounded">
                     VolyLegume — gestion de l’exploitation maraîchère
                 </span>
                 <span class="flex items-center gap-3">
-                    <a href="{{ route('modules.index') }}" class="text-emerald-600 transition hover:text-emerald-800">Toutes les fonctions</a>
+                    <a href="{{ route('modules.index') }}">Toutes les fonctions</a>
                     <span aria-hidden="true" class="text-slate-300">·</span>
-                    <a href="{{ route('resources.index') }}" class="text-emerald-600 transition hover:text-emerald-800">Ressources &amp; tutoriels</a>
+                    <a href="{{ route('resources.index') }}">Ressources &amp; tutoriels</a>
                 </span>
             </footer>
         </div>

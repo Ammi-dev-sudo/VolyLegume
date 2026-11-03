@@ -19,7 +19,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#022c22">
+    <meta name="theme-color" content="#0f3423" data-light-color="#0f3423" data-dark-color="#0a1310">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -28,6 +28,7 @@
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('images/apple-touch-icon.png') }}">
+    @include('partials.theme-init')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="guest-body relative min-h-screen overflow-x-hidden bg-emerald-950 text-slate-800">
@@ -36,6 +37,10 @@
     <div aria-hidden="true" class="pointer-events-none absolute -left-24 top-10 h-[26rem] w-[26rem] rounded-full bg-emerald-400/30 blur-3xl animate-blob"></div>
     <div aria-hidden="true" class="pointer-events-none absolute -right-20 top-1/3 h-[24rem] w-[24rem] rounded-full bg-lime-300/25 blur-3xl animate-blob" style="animation-delay: -6s"></div>
     <div aria-hidden="true" class="pointer-events-none absolute bottom-[-10rem] left-1/3 h-[22rem] w-[22rem] rounded-full bg-amber-300/20 blur-3xl animate-blob" style="animation-delay: -11s"></div>
+
+    <div class="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
+        <x-theme-toggle variant="on-dark" />
+    </div>
 
     <div class="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-8 sm:px-6">
         <div class="grid w-full items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
