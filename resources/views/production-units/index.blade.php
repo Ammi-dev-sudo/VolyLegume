@@ -24,6 +24,7 @@
                         <th class="py-2 pr-4">Nom</th>
                         <th class="py-2 pr-4">Superficie</th>
                         <th class="py-2 pr-4">Dimensions</th>
+                        <th class="py-2 pr-4">Contour</th>
                         <th class="py-2 pr-4">Localisation</th>
                         <th class="py-2 pr-4">Photo</th>
                         <th class="py-2 pr-4">Statut</th>
@@ -37,6 +38,21 @@
                             <td class="py-2 pr-4">{{ $unit->name }}</td>
                             <td class="py-2 pr-4">{{ number_format((float) $unit->area_m2, 0, ',', ' ') }} m²</td>
                             <td class="py-2 pr-4 text-xs">{{ ($unit->length_m !== null && $unit->width_m !== null) ? number_format((float)$unit->length_m,2,',',' ').' × '.number_format((float)$unit->width_m,2,',',' ').' m' : '—' }}</td>
+                            <td class="py-2 pr-4 text-xs">
+                                @php($boundaryArea = $unit->boundaryAreaM2())
+                                @if ($boundaryArea !== null)
+                                    <span class="rounded bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
+                                        {{ number_format($boundaryArea, 0, ',', ' ') }} m²
+                                    </span>
+                                @else
+                                    <span class="rounded bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">À dessiner</span>
+                                @endif
+                                @can('update', $unit)
+                                    <a href="{{ route('production-units.boundary.edit', $unit) }}" class="ml-1 font-semibold text-emerald-700 hover:underline">
+                                        {{ $boundaryArea === null ? 'Dessiner' : 'Modifier' }}
+                                    </a>
+                                @endcan
+                            </td>
                             <td class="py-2 pr-4">{{ $unit->location }}</td>
                             <td class="py-2 pr-4 text-xs">
                                 @if ($unit->photo_path)

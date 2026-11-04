@@ -19,7 +19,10 @@
                     <x-field name="width_m" label="Largeur (m, facultatif)" type="number" step="0.01" min="0.01"
                              value="{{ old('width_m', $productionUnit->width_m) }}" />
                 </div>
-                <p class="-mt-2 text-xs text-slate-500">Les dimensions servent à dessiner le plan ; elles restent indicatives.</p>
+                <p class="-mt-2 text-xs text-slate-500">
+                    Les dimensions restent indicatives. Après création, vous pourrez dessiner le contour géographique
+                    réel de la parcelle depuis sa fiche.
+                </p>
                 <x-field name="location" label="Localisation (repère, rangée)" required
                          value="{{ old('location', $productionUnit->location) }}" />
                 <x-select-field name="status" label="Statut" required

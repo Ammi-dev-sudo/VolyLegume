@@ -68,65 +68,128 @@
             </x-card>
         @else
             <div class="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(20rem,1fr)]" data-reveal-group="60">
+                @php
+                    $defaultMode = $map['geometry']['default_mode'] ?? 'plan';
+                @endphp
+
                 <x-card class="overflow-hidden">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <h2 class="text-lg font-semibold text-slate-800">Plan schématique</h2>
-                            <p class="mt-0.5 text-sm text-slate-500">Les proportions suivent les surfaces déclarées. Vue indicative, sans contour géographique.</p>
+                            <h2 class="text-lg font-semibold text-slate-800">Contours des parcelles</h2>
+                            <p class="mt-0.5 text-sm text-slate-500">
+                                Contours enregistrés en GeoJSON. La 3D extrude ces mêmes formes, sans données d’altitude.
+                            </p>
                         </div>
-                        <div role="group" aria-label="Mode d’affichage du plan" class="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
-                            <button type="button" data-map-mode="plan" aria-pressed="true" class="map-mode-button is-active rounded-lg px-3 py-1.5">
-                                Plan 2D
+                        <div role="group" aria-label="Mode d’affichage du plan" class="inline-flex flex-wrap rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+                            <button type="button" data-map-mode="2d" aria-pressed="{{ $defaultMode === '2d' ? 'true' : 'false' }}" class="map-mode-button {{ $defaultMode === '2d' ? 'is-active' : '' }} rounded-lg px-3 py-1.5">
+                                Contours 2D
                             </button>
-                            <button type="button" data-map-mode="relief" aria-pressed="false" class="map-mode-button rounded-lg px-3 py-1.5">
-                                Vue 3D
+                            <button type="button" data-map-mode="3d" aria-pressed="false" class="map-mode-button rounded-lg px-3 py-1.5">
+                                Extrusion 3D
+                            </button>
+                            <button type="button" data-map-mode="plan" aria-pressed="{{ $defaultMode === 'plan' ? 'true' : 'false' }}" class="map-mode-button {{ $defaultMode === 'plan' ? 'is-active' : '' }} rounded-lg px-3 py-1.5">
+                                Plan indicatif
                             </button>
                         </div>
                     </div>
 
-                    <div class="mt-4 rounded-2xl border border-emerald-200/70 bg-emerald-50 p-1.5 shadow-inner">
-                        <div data-map-stage
-                             class="farm-map-stage relative aspect-[16/10] w-full overflow-hidden rounded-xl"
-                             role="group"
-                             aria-label="Plan interactif des parcelles">
-                            <span class="farm-map-compass" aria-hidden="true">N</span>
-                            <span class="farm-map-caption">Plan indicatif · cliquez sur une parcelle</span>
+                    <div class="mt-4 space-y-3" data-map-shell>
+                        @if ($map['stats']['without_boundary'] > 0)
+                            <div class="farm-map-notice">
+                                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-white">!</span>
+                                <p>
+                                    <strong>{{ $map['stats']['without_boundary'] }}</strong> parcelle(s) sans contour enregistré.
+                                    Elles restent visibles dans le <button type="button" data-map-mode="plan" class="font-semibold underline underline-offset-2">plan indicatif</button>
+                                    et ne peuvent pas être extrudées en 3D.
+                                </p>
+                            </div>
+                        @endif
 
-                            @foreach ($map['units'] as $row)
-                                @php
-                                    $unit = $row['unit'];
-                                    $layout = $row['layout'];
-                                    $campaign = $row['primary_campaign'];
-                                @endphp
-                                <button type="button"
-                                        data-plot-target="plot-detail-{{ $unit->id }}"
-                                        class="farm-map-plot group absolute"
-                                        style="left: {{ $layout['left'] }}%; top: {{ $layout['top'] }}%; width: {{ $layout['width'] }}%; height: {{ $layout['height'] }}%; --plot-color: {{ $row['color'] }}; --plot-dark: {{ $row['color_dark'] }};"
-                                        aria-label="Afficher la parcelle {{ $unit->name }} ({{ $unit->code }})">
-                                    <span class="farm-map-plot-face">
-                                        <span class="relative z-10 flex h-full flex-col justify-between gap-1">
-                                            <span class="flex items-start justify-between gap-1">
-                                                <span class="rounded bg-black/20 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-white">
-                                                    {{ $unit->code }}
-                                                </span>
-                                                @if ($row['alert_count'] > 0)
-                                                    <span class="farm-map-alert" title="{{ $row['alert_count'] }} alerte(s)">{{ $row['alert_count'] }}</span>
-                                                @endif
-                                            </span>
-                                            <span class="min-w-0">
-                                                <span class="block truncate text-xs font-semibold leading-tight">{{ $unit->name }}</span>
-                                                <span class="mt-0.5 block truncate text-[10px] text-white/85">
-                                                    {{ $row['legend_label'] }}
-                                                    @if ($campaign)
-                                                        · {{ $campaign['status_label'] }}
+                        <div data-map-panel="2d" @if ($defaultMode !== '2d') hidden @endif class="relative overflow-hidden rounded-2xl border border-emerald-200/70 bg-emerald-50 p-1.5 shadow-inner">
+                            <div data-map-2d class="farm-map-canvas" role="application" aria-label="Carte 2D des contours de parcelles"></div>
+                            <span class="farm-map-caption">Fond © OpenStreetMap · contours enregistrés</span>
+                        </div>
+
+                        <div data-map-panel="3d" hidden class="relative overflow-hidden rounded-2xl border border-emerald-200/70 bg-emerald-50 p-1.5 shadow-inner">
+                            <div data-map-3d class="farm-map-canvas farm-map-canvas--3d" role="application" aria-label="Vue 3D extrudée des parcelles"></div>
+                            <div data-map-empty="3d" hidden class="farm-map-empty">
+                                <p class="text-base font-semibold text-slate-800">Aucun contour à extruder</p>
+                                <p class="mt-1 text-sm text-slate-600">Dessinez au moins un contour de parcelle pour alimenter la vue 3D.</p>
+                                @can('create', App\Models\ProductionUnit::class)
+                                    <a href="{{ route('production-units.create') }}" class="mt-3 inline-flex rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800">
+                                        Créer une parcelle
+                                    </a>
+                                @endcan
+                            </div>
+                            <span class="farm-map-caption">Extrusion symbolique · aucune donnée d’altitude</span>
+                        </div>
+
+                        <div data-map-panel="plan" @if ($defaultMode !== 'plan') hidden @endif class="rounded-2xl border border-emerald-200/70 bg-emerald-50 p-1.5 shadow-inner">
+                            <p class="px-2 pb-1.5 pt-1 text-xs text-slate-500">
+                                Plan schématique de secours : les positions suivent les surfaces déclarées, sans géolocalisation.
+                            </p>
+                            <div data-map-stage
+                                 class="farm-map-stage relative aspect-[16/10] w-full overflow-hidden rounded-xl"
+                                 role="group"
+                                 aria-label="Plan indicatif des parcelles">
+                                <span class="farm-map-compass" aria-hidden="true">N</span>
+                                <span class="farm-map-caption">Plan indicatif · cliquez sur une parcelle</span>
+
+                                @foreach ($map['units'] as $row)
+                                    @php
+                                        $unit = $row['unit'];
+                                        $layout = $row['layout'];
+                                        $campaign = $row['primary_campaign'];
+                                    @endphp
+                                    <button type="button"
+                                            data-plot-target="plot-detail-{{ $unit->id }}"
+                                            class="farm-map-plot group absolute"
+                                            style="left: {{ $layout['left'] }}%; top: {{ $layout['top'] }}%; width: {{ $layout['width'] }}%; height: {{ $layout['height'] }}%; --plot-color: {{ $row['color'] }}; --plot-dark: {{ $row['color_dark'] }};"
+                                            aria-label="Afficher la parcelle {{ $unit->name }} ({{ $unit->code }})">
+                                        <span class="farm-map-plot-face">
+                                            <span class="relative z-10 flex h-full flex-col justify-between gap-1">
+                                                <span class="flex items-start justify-between gap-1">
+                                                    <span class="rounded bg-black/20 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-white">
+                                                        {{ $unit->code }}
+                                                    </span>
+                                                    @if ($row['alert_count'] > 0)
+                                                        <span class="farm-map-alert" title="{{ $row['alert_count'] }} alerte(s)">{{ $row['alert_count'] }}</span>
                                                     @endif
+                                                </span>
+                                                <span class="min-w-0">
+                                                    <span class="block truncate text-xs font-semibold leading-tight">{{ $unit->name }}</span>
+                                                    <span class="mt-0.5 block truncate text-[10px] text-white/85">
+                                                        {{ $row['legend_label'] }}
+                                                        @if ($campaign)
+                                                            · {{ $campaign['status_label'] }}
+                                                        @endif
+                                                    </span>
                                                 </span>
                                             </span>
                                         </span>
-                                    </span>
-                                </button>
-                            @endforeach
+                                    </button>
+                                @endforeach
+                            </div>
                         </div>
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Sélection rapide</span>
+                        @foreach ($map['units'] as $row)
+                            @php
+                                $unit = $row['unit'];
+                            @endphp
+                            <button type="button"
+                                    data-map-select="{{ $unit->id }}"
+                                    class="map-unit-chip {{ $row['has_boundary'] ? '' : 'map-unit-chip--missing' }}"
+                                    aria-pressed="false">
+                                <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: {{ $row['color'] }}"></span>
+                                <span class="font-mono">{{ $unit->code }}</span>
+                                @if (! $row['has_boundary'])
+                                    <span class="text-[10px] font-medium text-amber-700">contour à dessiner</span>
+                                @endif
+                            </button>
+                        @endforeach
                     </div>
 
                     <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-600">
@@ -203,10 +266,51 @@
                             @endif
                         </div>
 
-                        <div class="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-500">
-                            La vue 3D est un relief décoratif. Pour une carte géographique fidèle, il faudra
-                            ajouter les contours des parcelles.
+                        <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
+                            <div class="rounded-xl bg-slate-50 px-3 py-2">
+                                <p class="font-semibold text-slate-700">Contours renseignés</p>
+                                <p class="mt-0.5 text-slate-500">
+                                    {{ $map['stats']['with_boundary'] }} / {{ $map['stats']['units'] }}
+                                </p>
+                            </div>
+                            <div class="rounded-xl bg-slate-50 px-3 py-2">
+                                <p class="font-semibold text-slate-700">Surface dessinée</p>
+                                <p class="mt-0.5 text-slate-500">
+                                    {{ number_format($map['stats']['mapped_area_m2'], 0, ',', ' ') }} m²
+                                </p>
+                            </div>
                         </div>
+
+                        <div class="mt-3 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-500">
+                            Les contours affichés sont les polygones enregistrés. La vue 3D est une
+                            <strong class="font-semibold text-slate-700">extrusion symbolique</strong> de ces formes :
+                            elle n’utilise aucune donnée d’altitude et ne constitue pas un modèle topographique.
+                        </div>
+
+                        @php
+                            $missing = collect($map['units'])->reject(fn (array $row): bool => $row['has_boundary']);
+                        @endphp
+                        @if ($missing->isNotEmpty())
+                            <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-amber-800">Contours à renseigner</p>
+                                <ul class="mt-2 space-y-1.5">
+                                    @foreach ($missing as $row)
+                                        <li class="flex items-center justify-between gap-2 text-xs text-amber-900">
+                                            <span class="min-w-0 truncate">
+                                                <span class="font-mono font-semibold">{{ $row['unit']->code }}</span>
+                                                · {{ $row['unit']->name }}
+                                            </span>
+                                            @can('update', $row['unit'])
+                                                <a href="{{ route('production-units.boundary.edit', $row['unit']) }}"
+                                                   class="shrink-0 font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-950">
+                                                    Dessiner
+                                                </a>
+                                            @endcan
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
                     </div>
 
                     @foreach ($map['units'] as $row)
@@ -244,7 +348,28 @@
                                 <span class="rounded-full px-2.5 py-1 {{ $unit->status->value === 'inactive' ? 'bg-slate-200 text-slate-600' : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' }}">
                                     {{ $unit->status->label() }}
                                 </span>
+                                @if ($row['has_boundary'])
+                                    <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700 ring-1 ring-emerald-100">
+                                        Contour · {{ number_format((float) $row['boundary_area_m2'], 0, ',', ' ') }} m²
+                                    </span>
+                                @else
+                                    <span class="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700 ring-1 ring-amber-200">
+                                        Contour à dessiner
+                                    </span>
+                                @endif
                             </div>
+
+                            @if (! $row['has_boundary'])
+                                <div class="mt-3 rounded-xl border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                    Aucun contour n’est enregistré : cette parcelle apparaît dans le plan indicatif,
+                                    mais pas dans les vues 2D et 3D.
+                                    @can('update', $unit)
+                                        <a href="{{ route('production-units.boundary.edit', $unit) }}" class="font-semibold underline underline-offset-2">
+                                            Dessiner le contour
+                                        </a>
+                                    @endcan
+                                </div>
+                            @endif
 
                             @if ($row['alert_count'] > 0)
                                 <ul class="mt-3 space-y-1.5">
@@ -427,6 +552,10 @@
                                     </a>
                                 @endif
                                 @can('update', $unit)
+                                    <a href="{{ route('production-units.boundary.edit', $unit) }}"
+                                       class="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-50">
+                                        {{ $row['has_boundary'] ? 'Modifier le contour' : 'Dessiner le contour' }}
+                                    </a>
                                     <a href="{{ route('production-units.edit', $unit) }}"
                                        class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
                                         Modifier la parcelle
@@ -439,4 +568,6 @@
             </div>
         @endif
     </div>
+
+    <script type="application/json" data-farm-map-config>{!! json_encode($map['geometry'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) !!}</script>
 @endsection

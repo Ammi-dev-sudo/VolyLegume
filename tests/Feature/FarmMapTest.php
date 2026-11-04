@@ -58,8 +58,157 @@ class FarmMapTest extends TestCase
             ->assertSee('Tomate')
             ->assertSee('Désherbage urgent')
             ->assertSee('Engrais foliaire')
-            ->assertSee('Vue 3D')
-            ->assertSee('Plan schématique');
+            ->assertSee('Extrusion 3D')
+            ->assertSee('Plan schématique de secours');
+    }
+
+    public function test_les_contours_enregistres_alimentent_les_vues_2d_et_3d(): void
+    {
+        $farm = $this->createFarm();
+        $unit = ProductionUnit::factory()->create([
+            'farm_id' => $farm->id,
+            'code' => 'P-CONTOUR',
+            'boundary' => $this->validBoundary(),
+        ]);
+
+        $this->actingAsFarmMember($farm);
+
+        $response = $this->get(route('farm-map.index'))
+            ->assertOk()
+            ->assertSee('P-CONTOUR')
+            ->assertSee('Extrusion 3D')
+            ->assertDontSee('Contours à renseigner');
+
+        $response->assertViewHas('map', function (array $map) use ($unit): bool {
+            $row = collect($map['units'])->firstWhere('unit.id', $unit->id);
+            $geometry = collect($map['geometry']['units'])->firstWhere('id', $unit->id);
+
+            return $row !== null
+                && $row['has_boundary'] === true
+                && count($row['boundary_points']) === 4
+                && $row['boundary_area_m2'] > 2500
+                && $geometry !== null
+                && $geometry['has_boundary'] === true
+                && $geometry['edit_url'] !== null
+                && $map['stats']['with_boundary'] === 1
+                && $map['stats']['without_boundary'] === 0
+                && $map['geometry']['default_mode'] === '2d';
+        });
+    }
+
+    public function test_un_responsable_peut_enregistrer_un_contour(): void
+    {
+        $farm = $this->createFarm();
+        $unit = ProductionUnit::factory()->create([
+            'farm_id' => $farm->id,
+            'latitude' => null,
+            'longitude' => null,
+            'area_m2' => 10,
+        ]);
+
+        $this->actingAsFarmMember($farm);
+
+        $this->put(route('production-units.boundary.update', $unit), [
+            'boundary' => json_encode($this->validBoundary()),
+            'update_area' => '1',
+        ])
+            ->assertRedirect(route('production-units.boundary.edit', $unit))
+            ->assertSessionHas('status');
+
+        $unit->refresh();
+
+        $this->assertTrue($unit->hasBoundary());
+        $this->assertSame(4, count($unit->boundaryPoints()));
+        $this->assertGreaterThan(2500, $unit->boundaryAreaM2());
+        $this->assertSame((float) $unit->area_m2, $unit->boundaryAreaM2());
+        $this->assertNotNull($unit->latitude);
+        $this->assertNotNull($unit->longitude);
+    }
+
+    public function test_un_contour_invalide_est_refuse(): void
+    {
+        $farm = $this->createFarm();
+        $unit = ProductionUnit::factory()->create([
+            'farm_id' => $farm->id,
+            'boundary' => null,
+        ]);
+
+        $this->actingAsFarmMember($farm);
+
+        $this->from(route('production-units.boundary.edit', $unit))
+            ->put(route('production-units.boundary.update', $unit), [
+                'boundary' => json_encode([
+                    'type' => 'Polygon',
+                    'coordinates' => [[[47.5, -18.9], [47.5, -18.9], [47.5, -18.9]]],
+                ]),
+            ])
+            ->assertRedirect(route('production-units.boundary.edit', $unit))
+            ->assertSessionHasErrors('boundary');
+
+        $this->assertNull($unit->fresh()->boundary);
+    }
+
+    public function test_un_agent_ne_peut_pas_modifier_les_contours(): void
+    {
+        $farm = $this->createFarm();
+        $unit = ProductionUnit::factory()->create(['farm_id' => $farm->id]);
+
+        $this->actingAsFarmMember($farm, FarmRole::Agent);
+
+        $this->get(route('production-units.boundary.edit', $unit))->assertForbidden();
+        $this->put(route('production-units.boundary.update', $unit), [
+            'boundary' => json_encode($this->validBoundary()),
+        ])->assertForbidden();
+    }
+
+    public function test_un_contour_ne_peut_pas_etre_modifie_depuis_une_autre_exploitation(): void
+    {
+        $farm = $this->createFarm();
+        $otherFarm = $this->createFarm();
+        $foreignUnit = ProductionUnit::factory()->create(['farm_id' => $otherFarm->id]);
+
+        $this->actingAsFarmMember($farm);
+
+        $this->get(route('production-units.boundary.edit', $foreignUnit))->assertNotFound();
+        $this->put(route('production-units.boundary.update', $foreignUnit), [
+            'boundary' => json_encode($this->validBoundary()),
+        ])->assertNotFound();
+    }
+
+    public function test_un_contour_peut_etre_supprime(): void
+    {
+        $farm = $this->createFarm();
+        $unit = ProductionUnit::factory()->create([
+            'farm_id' => $farm->id,
+            'boundary' => $this->validBoundary(),
+        ]);
+
+        $this->actingAsFarmMember($farm);
+
+        $this->put(route('production-units.boundary.update', $unit), [
+            'remove_boundary' => '1',
+        ])
+            ->assertRedirect(route('production-units.boundary.edit', $unit))
+            ->assertSessionHas('status');
+
+        $this->assertNull($unit->fresh()->boundary);
+    }
+
+    /**
+     * @return array{type: string, coordinates: array<int, array<int, array{0: float, 1: float}>>}
+     */
+    private function validBoundary(): array
+    {
+        return [
+            'type' => 'Polygon',
+            'coordinates' => [[
+                [47.5000, -18.9000],
+                [47.5005, -18.9000],
+                [47.5005, -18.9005],
+                [47.5000, -18.9005],
+                [47.5000, -18.9000],
+            ]],
+        ];
     }
 
     public function test_le_plan_ne_montre_que_les_parcelles_de_l_exploitation_active(): void

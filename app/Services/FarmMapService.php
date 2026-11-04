@@ -11,15 +11,17 @@ use App\Models\Farm;
 use App\Models\Input;
 use App\Models\ProductionUnit;
 use App\Models\ProductionUnitPhoto;
+use App\Support\ParcelBoundary;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Prépare le plan interactif d'une exploitation.
  *
- * Le plan est schématique : les parcelles sont disposées proportionnellement à
- * leur surface, faute de contour géographique fiable. Il ne remplace pas un
- * relevé topographique et sert de vue de gestion quotidienne.
+ * Les contours enregistrés (GeoJSON) alimentent les vues 2D et 3D. Les
+ * parcelles sans contour restent disponibles dans un plan schématique de
+ * repli ; la 3D est une extrusion symbolique, pas un modèle topographique.
  */
 class FarmMapService
 {
@@ -43,6 +45,7 @@ class FarmMapService
      *     units: list<array<string, mixed>>,
      *     legend: list<array{label: string, color: string, kind: string}>,
      *     stats: array<string, int|float>,
+     *     geometry: array<string, mixed>,
      *     critical_inputs: list<array{name: string, quantity: float, minimum_stock: float, unit: string}>,
      *     generated_at: string
      * }
@@ -108,6 +111,7 @@ class FarmMapService
 
         $overdue = (int) $rows->sum(fn (array $row): int => $row['overdue_count']);
         $blocked = $rows->filter(fn (array $row): bool => $row['blocked_until'] !== null)->count();
+        $mapped = $rows->filter(fn (array $row): bool => $row['has_boundary']);
 
         return [
             'units' => $rows->all(),
@@ -119,7 +123,36 @@ class FarmMapService
                 'overdue_activities' => $overdue,
                 'blocked_harvests' => $blocked,
                 'critical_inputs' => count($criticalInputs),
+                'with_boundary' => $mapped->count(),
+                'without_boundary' => $rows->count() - $mapped->count(),
+                'mapped_area_m2' => round((float) $mapped->sum(fn (array $row): float => (float) $row['boundary_area_m2']), 2),
                 'alerts' => $overdue + $blocked + count($criticalInputs),
+            ],
+            'geometry' => [
+                'farm' => [
+                    'name' => $farm->name,
+                    'latitude' => $farm->latitude !== null ? (float) $farm->latitude : null,
+                    'longitude' => $farm->longitude !== null ? (float) $farm->longitude : null,
+                ],
+                'default_mode' => $mapped->isNotEmpty() ? '2d' : 'plan',
+                'units' => $rows->map(fn (array $row): array => [
+                    'id' => $row['unit']->id,
+                    'code' => $row['unit']->code,
+                    'name' => $row['unit']->name,
+                    'status' => $row['unit']->status->value,
+                    'status_label' => $row['unit']->status->label(),
+                    'color' => $row['color'],
+                    'color_dark' => $row['color_dark'],
+                    'has_boundary' => $row['has_boundary'],
+                    'boundary' => $row['boundary'],
+                    'points' => $row['boundary_points'],
+                    'centroid' => $row['centroid'],
+                    'point' => $row['map_point'],
+                    'area_m2' => $row['boundary_area_m2'],
+                    'perimeter_m' => $row['perimeter_m'],
+                    'detail_target' => 'plot-detail-'.$row['unit']->id,
+                    'edit_url' => $row['can_edit'] ? $row['boundary_url'] : null,
+                ])->values()->all(),
             ],
             'critical_inputs' => $criticalInputs,
             'generated_at' => $now->format('d/m/Y H:i'),
@@ -211,6 +244,19 @@ class FarmMapService
             'uploaded_by' => $photo->uploadedBy?->name,
         ])->values()->all();
 
+        $boundary = ParcelBoundary::normalize($unit->boundary);
+        $boundaryPoints = ParcelBoundary::points($boundary);
+        $hasBoundary = $boundaryPoints !== [];
+        $centroid = $hasBoundary ? ParcelBoundary::centroid($boundaryPoints) : null;
+        $mapPoint = $centroid;
+
+        if ($mapPoint === null && $unit->latitude !== null && $unit->longitude !== null) {
+            $mapPoint = [
+                'lat' => (float) $unit->latitude,
+                'lng' => (float) $unit->longitude,
+            ];
+        }
+
         return [
             'unit' => $unit,
             'color' => $color,
@@ -231,6 +277,15 @@ class FarmMapService
             'alert_count' => count($alerts),
             'photos' => $photos,
             'photo_count' => count($photos),
+            'boundary' => $boundary,
+            'boundary_points' => $boundaryPoints,
+            'has_boundary' => $hasBoundary,
+            'boundary_area_m2' => $hasBoundary ? round(ParcelBoundary::areaM2($boundaryPoints), 2) : null,
+            'perimeter_m' => $hasBoundary ? round(ParcelBoundary::perimeterM($boundaryPoints), 2) : null,
+            'centroid' => $centroid,
+            'map_point' => $mapPoint,
+            'can_edit' => Gate::allows('update', $unit),
+            'boundary_url' => route('production-units.boundary.edit', $unit),
         ];
     }
 

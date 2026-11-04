@@ -115,6 +115,8 @@ Route::middleware(['auth', 'farm'])->group(function () {
     Route::get('parcelles/creer', [ProductionUnitController::class, 'create'])->name('production-units.create');
     Route::post('parcelles', [ProductionUnitController::class, 'store'])->name('production-units.store');
     Route::get('parcelles/{productionUnit}/modifier', [ProductionUnitController::class, 'edit'])->name('production-units.edit');
+    Route::get('parcelles/{productionUnit}/contour', [ProductionUnitController::class, 'editBoundary'])->name('production-units.boundary.edit');
+    Route::put('parcelles/{productionUnit}/contour', [ProductionUnitController::class, 'updateBoundary'])->name('production-units.boundary.update');
     Route::put('parcelles/{productionUnit}', [ProductionUnitController::class, 'update'])->name('production-units.update');
     Route::delete('parcelles/{productionUnit}', [ProductionUnitController::class, 'destroy'])->name('production-units.destroy');
     Route::post('parcelles/{productionUnit}/photos', [ProductionUnitPhotoController::class, 'store'])->name('production-units.photos.store');

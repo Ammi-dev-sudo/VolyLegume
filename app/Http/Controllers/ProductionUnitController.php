@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Enums\ProductionUnitStatus;
 use App\Http\Controllers\Concerns\UsesFarmContext;
 use App\Models\ProductionUnit;
+use App\Rules\ValidParcelBoundary;
+use App\Support\ParcelBoundary;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -113,6 +115,81 @@ class ProductionUnitController extends Controller
 
         return redirect()->route('production-units.index')
             ->with('status', 'Parcelle mise à jour.');
+    }
+
+    public function editBoundary(ProductionUnit $productionUnit): View
+    {
+        Gate::authorize('update', $productionUnit);
+
+        $boundary = $productionUnit->boundaryGeoJson();
+        $points = ParcelBoundary::points($boundary);
+        $centroid = ParcelBoundary::centroid($points);
+        $farm = $this->farm();
+
+        $center = $centroid
+            ?? ($productionUnit->latitude !== null && $productionUnit->longitude !== null
+                ? ['lat' => (float) $productionUnit->latitude, 'lng' => (float) $productionUnit->longitude]
+                : ($farm->latitude !== null && $farm->longitude !== null
+                    ? ['lat' => (float) $farm->latitude, 'lng' => (float) $farm->longitude]
+                    : null));
+
+        return view('production-units.boundary', [
+            'productionUnit' => $productionUnit,
+            'boundary' => $boundary,
+            'points' => $points,
+            'areaM2' => $points === [] ? null : round(ParcelBoundary::areaM2($points), 2),
+            'perimeterM' => $points === [] ? null : round(ParcelBoundary::perimeterM($points), 2),
+            'center' => $center,
+            'zoom' => $center === null ? 2 : ($points === [] ? 17 : 18),
+        ]);
+    }
+
+    public function updateBoundary(Request $request, ProductionUnit $productionUnit): RedirectResponse
+    {
+        Gate::authorize('update', $productionUnit);
+
+        $validated = $request->validate([
+            'boundary' => ['nullable', 'required_without:remove_boundary', new ValidParcelBoundary],
+            'remove_boundary' => ['nullable', 'boolean'],
+            'update_area' => ['nullable', 'boolean'],
+        ]);
+
+        if ($request->boolean('remove_boundary')) {
+            $productionUnit->update(['boundary' => null]);
+
+            return redirect()->route('production-units.boundary.edit', $productionUnit)
+                ->with('status', 'Contour supprimé.');
+        }
+
+        $boundary = ParcelBoundary::normalize($validated['boundary'] ?? null);
+
+        if ($boundary === null) {
+            return back()->withErrors([
+                'boundary' => 'Le contour enregistré est invalide.',
+            ])->withInput();
+        }
+
+        $points = ParcelBoundary::points($boundary);
+        $area = ParcelBoundary::areaM2($points);
+        $attributes = ['boundary' => $boundary];
+
+        if ($request->boolean('update_area')) {
+            $attributes['area_m2'] = max(0.01, round($area, 2));
+        }
+
+        if ($productionUnit->latitude === null || $productionUnit->longitude === null) {
+            $centroid = ParcelBoundary::centroid($points);
+
+            if ($centroid !== null) {
+                $attributes['latitude'] = round($centroid['lat'], 7);
+                $attributes['longitude'] = round($centroid['lng'], 7);
+            }
+        }
+
+        $productionUnit->update($attributes);
+
+        return redirect()->route('production-units.boundary.edit', $productionUnit)
+            ->with('status', 'Contour enregistré.');
     }
 
     public function destroy(ProductionUnit $productionUnit): RedirectResponse

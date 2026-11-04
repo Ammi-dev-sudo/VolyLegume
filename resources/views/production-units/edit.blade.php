@@ -20,7 +20,32 @@
                     <x-field name="width_m" label="Largeur (m, facultatif)" type="number" step="0.01" min="0.01"
                              value="{{ old('width_m', $productionUnit->width_m) }}" />
                 </div>
-                <p class="-mt-2 text-xs text-slate-500">Les dimensions servent à dessiner le plan ; elles restent indicatives.</p>
+                <p class="-mt-2 text-xs text-slate-500">Les dimensions restent indicatives. Le contour géographique réel se dessine séparément.</p>
+
+                @php($boundaryArea = $productionUnit->boundaryAreaM2())
+                <div class="rounded-xl border {{ $boundaryArea !== null ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50' }} px-3 py-2 text-xs">
+                    <p class="font-semibold {{ $boundaryArea !== null ? 'text-emerald-800' : 'text-amber-800' }}">
+                        @if ($boundaryArea !== null)
+                            Contour enregistré · {{ number_format($boundaryArea, 0, ',', ' ') }} m²
+                        @else
+                            Aucun contour enregistré
+                        @endif
+                    </p>
+                    <p class="mt-0.5 {{ $boundaryArea !== null ? 'text-emerald-700' : 'text-amber-700' }}">
+                        @if ($boundaryArea !== null)
+                            La carte 2D et l’extrusion 3D utilisent ce polygone.
+                        @else
+                            La parcelle reste dans le plan indicatif jusqu’à l’enregistrement d’un contour.
+                        @endif
+                    </p>
+                    @can('update', $productionUnit)
+                        <a href="{{ route('production-units.boundary.edit', $productionUnit) }}"
+                           class="mt-1 inline-flex font-semibold text-emerald-800 underline underline-offset-2">
+                            {{ $boundaryArea !== null ? 'Modifier le contour' : 'Dessiner le contour' }}
+                        </a>
+                    @endcan
+                </div>
+
                 <x-field name="location" label="Localisation (repère, rangée)" required
                          value="{{ old('location', $productionUnit->location) }}" />
                 <x-select-field name="status" label="Statut" required

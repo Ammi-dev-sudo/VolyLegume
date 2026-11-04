@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ProductionUnitStatus;
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToFarm;
+use App\Support\ParcelBoundary;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,7 @@ class ProductionUnit extends Model
         'slope',
         'latitude',
         'longitude',
+        'boundary',
         'location',
         'type',
         'status',
@@ -42,8 +44,52 @@ class ProductionUnit extends Model
             'width_m' => 'decimal:2',
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
+            'boundary' => 'array',
             'status' => ProductionUnitStatus::class,
         ];
+    }
+
+    /**
+     * @return array{type: string, coordinates: array<int, array<int, array{0: float, 1: float}>>}|null
+     */
+    public function boundaryGeoJson(): ?array
+    {
+        return ParcelBoundary::normalize($this->boundary);
+    }
+
+    /**
+     * @return list<array{0: float, 1: float}>
+     */
+    public function boundaryPoints(): array
+    {
+        return ParcelBoundary::points($this->boundaryGeoJson());
+    }
+
+    public function hasBoundary(): bool
+    {
+        return $this->boundaryPoints() !== [];
+    }
+
+    public function boundaryAreaM2(): ?float
+    {
+        $points = $this->boundaryPoints();
+
+        return $points === [] ? null : round(ParcelBoundary::areaM2($points), 2);
+    }
+
+    public function boundaryPerimeterM(): ?float
+    {
+        $points = $this->boundaryPoints();
+
+        return $points === [] ? null : round(ParcelBoundary::perimeterM($points), 2);
+    }
+
+    /**
+     * @return array{lat: float, lng: float}|null
+     */
+    public function boundaryCentroid(): ?array
+    {
+        return ParcelBoundary::centroid($this->boundaryPoints());
     }
 
     public function farm(): BelongsTo
