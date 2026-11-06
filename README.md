@@ -8,7 +8,7 @@ Application web de gestion d'exploitations maraîchères, projet fil rouge du BU
 - Rôles d'exploitation : Responsable (chef d'exploitation), Agent, Admin — gestion des rattachements (équipiers)
 - Rôle global d'administrateur de plateforme : supervision des comptes, des exploitations et du journal transversal
 - Parcelles et cultures (référentiels), campagnes (semis / plantation), calendrier cultural généré et replanifiable
-- Plan interactif des parcelles : disposition proportionnelle aux surfaces, sélection d'une parcelle, campagne en cours, prochaines activités, récoltes, alertes, galerie photos et bascule vers un relief 3D indicatif
+- Plan interactif des parcelles : contours GeoJSON dessinés et éditables, vues 2D sur imagerie satellite Esri ou plan OpenStreetMap et 3D extrudée à partir des mêmes géométries, avec imagerie plaquée à plat, couches activables cultures, campagnes, activités à venir, activités en retard, récoltes, états de récolte, irrigation, alertes et états avec légendes dédiées, filtres synchronisés et frise des récoltes, sélection synchronisée, campagne en cours, prochaines activités, récoltes, alertes, galerie photos et synthèse imprimable / PDF ; les parcelles sans contour restent signalées et ne sont jamais positionnées arbitrairement
 - Navigation principale élargie (tableau de bord, plan, parcelles, campagnes, activités, irrigation, agenda, stock récolté, hub) avec un hub regroupant les fonctions secondaires
 - Irrigation et eau : saisie des arrosages par parcelle et campagne, volumes, durées, m³/m², quotas d'eau paramétrables et comparaison entre campagnes
 - Photos d'exploitation : photo principale de parcelle et historique de photos rattachables à une campagne ou une activité
@@ -105,7 +105,7 @@ Puis, dans les deux cas :
 php artisan migrate:fresh --seed
 ```
 
-32 migrations créent le schéma complet (dont la table `personal_access_tokens` de Sanctum) ; le seeder (`DatabaseSeeder`) peuple deux exploitations fictives avec leurs comptes, parcelles, cultures, campagnes, stocks, opérations, lots de récolte, clients, ventes et paiements (voir plus bas).
+32 migrations créent le schéma complet (dont la table `personal_access_tokens` de Sanctum) ; le seeder (`DatabaseSeeder`) peuple deux exploitations fictives avec leurs comptes, parcelles, cultures, campagnes, stocks, opérations, lots de récolte, clients, ventes et paiements (voir plus bas). Les quatre parcelles de chaque exploitation de démonstration reçoivent aussi un contour GeoJSON fictif autour de la localité renseignée, afin d’alimenter directement les vues 2D et 3D.
 
 #### Réglage PostgreSQL « gros volumes »
 
@@ -225,7 +225,7 @@ Chaque réponse inclut `X-Farm-Id` et des en-têtes de pagination (`X-Per-Page`,
 php artisan test           # ou : vendor/bin/phpunit
 ```
 
-La suite (152 tests, 544 assertions) tourne sur SQLite en mémoire et couvre l'authentification API, l'isolation entre exploitations, les rôles et Policies, les stocks et leur verrouillage, le délai avant récolte, la chaîne commerciale (lots, ventes, paiements, annulation), les finances, la rentabilité, les exports CSV, le plan interactif, l'irrigation, les photos de parcelles, les alertes de retard critique, la traçabilité QR, le hub de modules, le journal d'audit et sa purge, l'administration plateforme, la supervision, la synchronisation hors ligne, l'API et le cycle sauvegarde/restauration.
+La suite (170 tests, 658 assertions) tourne sur SQLite en mémoire et couvre l'authentification API, l'isolation entre exploitations, les rôles et Policies, les stocks et leur verrouillage, le délai avant récolte, la chaîne commerciale (lots, ventes, paiements, annulation), les finances, la rentabilité, les exports CSV, le plan interactif et ses contours 2D/3D, l'irrigation, les photos de parcelles, les alertes de retard critique, la traçabilité QR, le hub de modules, le journal d'audit et sa purge, l'administration plateforme, la supervision, la synchronisation hors ligne, l'API et le cycle sauvegarde/restauration.
 
 À chaque `push` et `pull request`, GitHub Actions (`.github/workflows/ci.yml`) rejoue la suite sur SQLite puis sur PostgreSQL 18, vérifie le formatage avec Pint et compile les assets Vite. Le workflow contrôle aussi que les compteurs ci-dessus restent synchronisés avec le rapport JUnit ; mettez-les à jour lorsque la suite évolue.
 
@@ -261,6 +261,21 @@ L'écran `/rentabilite` agrège les dépenses, recettes et consommations d'eau p
 - `GET /exports/campagnes.csv`, `/exports/stocks.csv`, `/exports/traitements.csv`, `/exports/ventes.csv`, `/exports/finances.csv` : exports métier.
 
 Les CSV utilisent le point-virgule, un BOM UTF-8 et neutralisent les valeurs commençant par `=`, `+`, `-` ou `@` pour éviter l'exécution de formules dans un tableur.
+
+## Plan cartographique et contours
+
+Les contours de parcelles sont saisis sur `/parcelles/{parcelle}/contour` puis stockés en GeoJSON (longitude / latitude, ordre GeoJSON). La vue `/plan` affiche ces mêmes polygones en 2D avec Leaflet et en 3D avec Three.js.
+
+- Un panneau « Couches d’information » active ou masque les cultures suivies, les campagnes, les activités à venir, les activités en retard, les récoltes, les états de récolte, l’irrigation, les alertes de parcelle et l’état des parcelles. Chaque couche possède sa légende et agit en 2D comme en 3D ; la sélection d’une parcelle continue d’ouvrir sa fiche. Les récoltes conservent leur unité d’origine : les quantités ne sont jamais additionnées entre unités différentes.
+- Une section « Suivi des récoltes » filtre les parcelles, les badges, les fiches et la frise par état calculé : bloquée, en cours, à venir, en culture, terminée, terminée sans récolte, suspendue, annulée ou non renseignée. La frise distingue les récoltes enregistrées des récoltes planifiées et n’affiche aucune quantité pour une simple planification.
+- Les couches et les états ne s’appuient que sur les enregistrements de l’exploitation active : campagnes et cultures, activités planifiées, récoltes enregistrées ou planifiées, récoltes bloquées, quotas et événements d’irrigation, statuts des parcelles. Une couche sans données est désactivée et explique pourquoi, sans valeur fictive. Les mentions « à venir » et « en retard » sont calculées à partir des dates et statuts saisis ; elles ne constituent pas un historique reconstitué. L’isolation entre exploitations et les autorisations existantes restent appliquées.
+- Un bandeau rappelle en permanence le mode actif : contours 2D sur imagerie satellite ou plan OpenStreetMap, extrusion 3D symbolique sur imagerie plaquée à plat sans relief mesuré, ou plan indicatif basé sur les surfaces déclarées. Les contours 2D et la scène 3D sont accessibles au clavier (Tab, flèches, Entrée ou Espace) et les transitions restent brèves ; aucune animation permanente n’est utilisée pour les couches.
+- Le fond 2D utilise par défaut l'imagerie satellite Esri, avec un basculement vers le plan OpenStreetMap ; les attributions restent visibles et les tuiles ne sont chargées qu'en ligne. La 3D plaque une image satellite Esri à plat sous les extrusions : c'est un décor, pas un modèle de terrain. Si le réseau est faible ou absent, les contours enregistrés restent affichés, un message le signale et le plan indicatif reste accessible.
+- La 3D est une extrusion des polygones, pas un modèle de terrain. Aucune altitude, pente ou distance n'est inventée : la mention « Relief non disponible » est affichée tant qu'aucune source d'altitude fiable n'est configurée.
+- Une parcelle sans contour n'est jamais placée au hasard : elle apparaît dans le plan indicatif, et seulement avec un point « position connue, contour à dessiner » sur la carte 2D si des coordonnées existent déjà. Elle n'est jamais extrudée en 3D.
+- Le bouton « Imprimer / PDF » ouvre l’impression du navigateur sur une synthèse lisible : carte 2D (ou plan indicatif sans contour), statistiques, tableau des parcelles et légendes des couches actives. La vue 3D n’est pas imprimée, car son rendu n’est pas garanti et le relief n’est pas une donnée mesurée.
+- Les tableaux de l’espace de travail partagent une hiérarchie typographique stable (en-têtes 600, texte 500, totaux et valeurs clés accentués), des chiffres alignés et des états de survol/focus discrets ; les lignes ne sont pas animées à chaque chargement.
+- Sans JavaScript, une liste de repli affiche le code, la surface et l'état du contour de chaque parcelle.
 
 ## Mode hors connexion (PWA)
 

@@ -2,6 +2,8 @@ import 'leaflet/dist/leaflet.css';
 import { initOffline } from './offline';
 
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const SATELLITE_ATTRIBUTION = 'Source: &copy; <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>, Vantor, Earthstar Geographics, GIS User Community';
 
 /**
  * Formate un nombre à la française (séparateur de milliers : espace,
@@ -150,20 +152,6 @@ function initReveal() {
         scheduled = true;
         window.requestAnimationFrame(sweep);
     }, { passive: true });
-}
-
-/**
- * Anime l'entrée des lignes de tableau, ligne par ligne.
- */
-function initTableRows() {
-    document.querySelectorAll('tbody').forEach((body) => {
-        body.querySelectorAll('tr').forEach((row, index) => {
-            if (index < 10) {
-                row.classList.add('row-in');
-                row.style.setProperty('--row-index', index);
-            }
-        });
-    });
 }
 
 /**
@@ -608,16 +596,343 @@ async function createParcelMap(container, config, onSelect) {
         worldCopyJump: true,
     });
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const panel = container.closest('[data-map-panel]');
+    const tileStatus = panel?.querySelector('[data-map-tile-status]') ?? null;
+    const basemapButtons = panel ? [...panel.querySelectorAll('[data-map-basemap]')] : [];
+    const satelliteTiles = L.tileLayer(SATELLITE_TILE_URL, {
+        maxZoom: 19,
+        maxNativeZoom: 19,
+        attribution: SATELLITE_ATTRIBUTION,
+    });
+    const planTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map);
+    });
+    const basemapLayers = {
+        satellite: satelliteTiles,
+        plan: planTiles,
+    };
+    let activeBasemap = 'satellite';
+
+    const currentTiles = () => basemapLayers[activeBasemap];
+
+    const syncBasemapUi = () => {
+        basemapButtons.forEach((button) => {
+            const active = button.dataset.mapBasemap === activeBasemap;
+
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+
+        container.classList.toggle('is-satellite', activeBasemap === 'satellite');
+    };
+
+    const showTileStatus = (message) => {
+        if (tileStatus) {
+            tileStatus.textContent = message;
+            tileStatus.hidden = false;
+        }
+    };
+
+    const hideTileStatus = () => {
+        if (tileStatus) {
+            tileStatus.hidden = true;
+        }
+    };
+
+    const setBasemap = (key) => {
+        if (!basemapLayers[key] || key === activeBasemap) {
+            return;
+        }
+
+        const previous = currentTiles();
+        activeBasemap = key;
+
+        if (map.hasLayer(previous)) {
+            map.removeLayer(previous);
+        }
+
+        currentTiles().addTo(map);
+        syncBasemapUi();
+        hideTileStatus();
+        currentTiles().redraw();
+    };
+
+    basemapButtons.forEach((button) => {
+        button.addEventListener('click', () => setBasemap(button.dataset.mapBasemap));
+    });
+
+    Object.entries(basemapLayers).forEach(([key, layer]) => {
+        layer.on('tileerror', () => {
+            if (key !== activeBasemap) {
+                return;
+            }
+
+            showTileStatus(
+                key === 'satellite'
+                    ? 'Imagerie satellite indisponible (réseau faible). Passez au fond Plan ou réessayez.'
+                    : 'Fond de plan indisponible (réseau faible). Les contours enregistrés restent affichés.',
+            );
+        });
+        layer.on('tileload', () => {
+            if (key === activeBasemap) {
+                hideTileStatus();
+            }
+        });
+    });
+
+    satelliteTiles.addTo(map);
+    syncBasemapUi();
+
+    const handleOnline = () => {
+        hideTileStatus();
+        currentTiles().redraw();
+    };
+    const handleOffline = () => {
+        showTileStatus('Hors connexion : le fond de carte ne peut pas être chargé. Les contours restent affichés.');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    if (!navigator.onLine) {
+        handleOffline();
+    }
 
     const units = Array.isArray(config.units) ? config.units : [];
     const unitsById = new Map(units.map((unit) => [Number(unit.id), unit]));
     const polygons = new Map();
     const missingMarkers = new Map();
     const bounds = L.latLngBounds([]);
+    let selectedId = null;
+    let hoveredId = null;
+    let harvestFilterStates = null;
+    const tooltipText = (text) => {
+        const element = document.createElement('span');
+        element.textContent = text;
+
+        return element;
+    };
+
+    const unitMatchesHarvestFilter = (unit) => (
+        harvestFilterStates === null
+        || (unit?.harvest_state?.key && harvestFilterStates.has(unit.harvest_state.key))
+    );
+
+    const polygonStyle = (id) => {
+        const unit = unitsById.get(id);
+        const selected = id === selectedId;
+        const hovered = id === hoveredId;
+        const stateColor = activeLayerKeys.has('harvest_state') ? unit?.harvest_state?.color : null;
+
+        if (!unitMatchesHarvestFilter(unit)) {
+            return {
+                color: '#94a3b8',
+                weight: 1,
+                opacity: 0.25,
+                fillColor: '#cbd5e1',
+                fillOpacity: 0.05,
+            };
+        }
+
+        return {
+            color: selected ? '#f59e0b' : (hovered ? '#fbbf24' : (stateColor || unit?.color_dark || unit?.color || '#0f766e')),
+            weight: selected ? 4 : (hovered ? 3 : 2),
+            fillColor: stateColor || unit?.color || '#0f766e',
+            fillOpacity: selected ? 0.7 : (hovered ? 0.6 : 0.45),
+        };
+    };
+
+    const circleStyle = (id) => {
+        const unit = unitsById.get(id);
+        const selected = id === selectedId;
+        const hovered = id === hoveredId;
+        const stateColor = activeLayerKeys.has('harvest_state') ? unit?.harvest_state?.color : null;
+
+        if (!unitMatchesHarvestFilter(unit)) {
+            return {
+                radius: 6,
+                color: '#94a3b8',
+                weight: 1,
+                opacity: 0.25,
+                fillColor: '#cbd5e1',
+                fillOpacity: 0.2,
+            };
+        }
+
+        return {
+            radius: selected ? 11 : (hovered ? 10 : 8),
+            color: selected ? '#f59e0b' : (hovered ? '#fbbf24' : (stateColor || '#b45309')),
+            weight: selected ? 4 : (hovered ? 3 : 2),
+            fillColor: selected ? '#fbbf24' : (stateColor || '#f59e0b'),
+        };
+    };
+
+    const applyUnitStyles = () => {
+        polygons.forEach((polygon, id) => polygon.setStyle(polygonStyle(id)));
+        missingMarkers.forEach((marker, id) => {
+            marker.setStyle(circleStyle(id));
+            marker.setRadius(circleStyle(id).radius);
+        });
+    };
+
+    const makeFocusable = (layer, id, label) => {
+        const attach = () => {
+            const element = layer.getElement();
+
+            if (!element || element.dataset.mapFocusable === 'true') {
+                return;
+            }
+
+            element.dataset.mapFocusable = 'true';
+            element.setAttribute('tabindex', '0');
+            element.setAttribute('role', 'button');
+            element.setAttribute('aria-label', label);
+            element.addEventListener('focus', () => {
+                hoveredId = id;
+                applyUnitStyles();
+            });
+            element.addEventListener('blur', () => {
+                if (hoveredId === id) {
+                    hoveredId = null;
+                    applyUnitStyles();
+                }
+            });
+            element.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onSelect(id);
+                }
+            });
+        };
+
+        layer.on('add', attach);
+        attach();
+    };
+
+    const layerKeys = [
+        'crops',
+        'upcoming_activities',
+        'late_activities',
+        'irrigation',
+        'alerts',
+        'campaigns',
+        'harvests',
+        'status',
+        'harvest_state',
+    ];
+    const layerGroups = new Map(layerKeys.map((key) => [key, L.layerGroup()]));
+    const layerMarkers = new Map(layerKeys.map((key) => [key, new Map()]));
+    const activeLayerKeys = new Set();
+    const numberFr = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
+    const layerOffsets = {
+        crops: -140,
+        upcoming_activities: -112,
+        late_activities: -84,
+        irrigation: -56,
+        alerts: -28,
+        campaigns: 0,
+        harvests: 28,
+        status: 56,
+        harvest_state: 84,
+    };
+
+    const layerBadge = (key, unit) => {
+        const data = unit.layers?.[key];
+
+        if (!data || data.available !== true) {
+            return null;
+        }
+
+        const badge = document.createElement('div');
+        badge.className = `map-layer-marker map-layer-marker--${key}`;
+        badge.style.setProperty('--layer-offset', `${layerOffsets[key] ?? 0}px`);
+
+        const icon = document.createElement('span');
+        icon.className = 'map-layer-marker__icon';
+        icon.setAttribute('aria-hidden', 'true');
+
+        const label = document.createElement('span');
+        label.className = 'map-layer-marker__label';
+        const irrigationAccents = {
+            ok: '#0ea5e9',
+            approaching: '#f59e0b',
+            exceeded: '#dc2626',
+            unquoted: '#64748b',
+            unavailable: '#94a3b8',
+        };
+
+        let title = `${unit.code} · ${unit.name}`;
+        let text = '';
+        let accent = unit.color;
+
+        if (key === 'crops') {
+            text = data.primary_label ?? `${data.count} culture(s)`;
+            title += ` · Cultures : ${(data.labels ?? []).join(', ')}`;
+        } else if (key === 'campaigns') {
+            text = `${data.count} campagne${data.count > 1 ? 's' : ''}`;
+            title += ` · ${(data.labels ?? []).join(' · ')}`;
+            accent = data.color ?? accent;
+        } else if (key === 'upcoming_activities') {
+            text = `${data.count} à venir`;
+            title += ` · ${(data.labels ?? []).join(' · ')}`;
+            accent = '#0284c7';
+        } else if (key === 'late_activities') {
+            text = `${data.count} en retard`;
+            title += ` · ${(data.labels ?? []).join(' · ')}`;
+            icon.textContent = '!';
+            accent = '#dc2626';
+        } else if (key === 'harvests') {
+            text = `${data.count} récolte${data.count > 1 ? 's' : ''}`;
+            title += ` · ${(data.labels ?? []).join(' · ')}`;
+            accent = '#65a30d';
+        } else if (key === 'alerts') {
+            text = `${data.count} alerte${data.count > 1 ? 's' : ''}`;
+            title += ` · ${(data.labels ?? []).join(' · ')}`;
+            icon.textContent = '!';
+            accent = '#dc2626';
+        } else if (key === 'irrigation') {
+            text = data.usage_percent !== null
+                ? `Eau ${numberFr.format(data.usage_percent)} %`
+                : (data.events_count > 0 ? `Eau ${numberFr.format(data.used_m3)} m³` : 'Eau 0 %');
+            title += ` · ${data.status_label} · ${numberFr.format(data.used_m3)} m³ relevés`;
+            if (data.quota_m3 !== null) {
+                title += ` sur ${numberFr.format(data.quota_m3)} m³`;
+            }
+            if (data.last_irrigated_at) {
+                title += ` · dernier arrosage ${data.last_irrigated_at}`;
+            }
+            accent = irrigationAccents[data.status] ?? irrigationAccents.unquoted;
+            badge.dataset.status = data.status;
+        } else if (key === 'status') {
+            text = data.label;
+            title += ` · État : ${data.label}`;
+            accent = data.color;
+            badge.dataset.status = data.value;
+        } else if (key === 'harvest_state') {
+            text = data.label;
+            title += ` · Récolte : ${data.label}`;
+            if (data.reason) {
+                title += ` · ${data.reason}`;
+            }
+            if (data.last_harvested_at) {
+                title += ` · dernière récolte ${data.last_harvested_at}`;
+            }
+            if (data.next_planned_date) {
+                title += ` · prochaine récolte ${data.next_planned_date}`;
+            }
+            accent = data.color;
+            badge.dataset.status = data.key;
+        }
+
+        label.textContent = text;
+        badge.style.setProperty('--layer-accent', accent);
+        badge.append(icon, label);
+        badge.title = title;
+        badge.dataset.unit = String(unit.id);
+
+        return badge;
+    };
 
     units.forEach((unit) => {
         const id = Number(unit.id);
@@ -635,12 +950,25 @@ async function createParcelMap(container, config, onSelect) {
                 lineJoin: 'round',
             }).addTo(map);
 
-            polygon.bindTooltip(`${unit.code} · ${unit.name}`, {
+            polygon.bindTooltip(tooltipText(`${unit.code} · ${unit.name}`), {
                 sticky: true,
                 direction: 'top',
                 opacity: 0.92,
             });
             polygon.on('click', () => onSelect(id));
+            polygon.on('mouseover', () => {
+                hoveredId = id;
+                applyUnitStyles();
+                polygon.bringToFront();
+            });
+            polygon.on('mouseout', () => {
+                if (hoveredId === id && document.activeElement !== polygon.getElement()) {
+                    hoveredId = null;
+                    applyUnitStyles();
+                }
+            });
+            makeFocusable(polygon, id, `Parcelle ${unit.code} · ${unit.name}. Ouvrir la fiche.`);
+            polygon.setStyle(polygonStyle(id));
             polygons.set(id, polygon);
 
             return;
@@ -659,58 +987,161 @@ async function createParcelMap(container, config, onSelect) {
                 fillOpacity: 0.85,
             }).addTo(map);
 
-            marker.bindTooltip(`${unit.code} · ${unit.name} — contour à dessiner`, {
+            marker.bindTooltip(tooltipText(`${unit.code} · ${unit.name} — position connue, contour à dessiner`), {
                 direction: 'top',
                 opacity: 0.92,
             });
             marker.on('click', () => onSelect(id));
+            marker.on('mouseover', () => {
+                hoveredId = id;
+                applyUnitStyles();
+            });
+            marker.on('mouseout', () => {
+                if (hoveredId === id && document.activeElement !== marker.getElement()) {
+                    hoveredId = null;
+                    applyUnitStyles();
+                }
+            });
+            makeFocusable(marker, id, `Parcelle ${unit.code} · ${unit.name}, position connue sans contour. Ouvrir la fiche.`);
+            marker.setStyle(circleStyle(id));
+            marker.setRadius(circleStyle(id).radius);
             missingMarkers.set(id, marker);
         }
     });
 
-    if (bounds.isValid()) {
-        map.fitBounds(bounds.pad(0.18), { padding: [24, 24], maxZoom: 18 });
-    } else if (config.farm && Number.isFinite(config.farm.latitude) && Number.isFinite(config.farm.longitude)) {
-        map.setView([config.farm.latitude, config.farm.longitude], 16);
-    } else {
-        map.setView([20, 0], 2);
-    }
+    units.forEach((unit) => {
+        const point = unit.point;
 
-    const setSelected = (id) => {
-        const selectedId = id === null || id === undefined ? null : Number(id);
+        if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
+            return;
+        }
 
-        polygons.forEach((polygon, unitId) => {
-            const unit = unitsById.get(unitId);
-            const selected = unitId === selectedId;
+        const id = Number(unit.id);
+        const latlng = [point.lat, point.lng];
 
-            polygon.setStyle({
-                color: selected ? '#f59e0b' : (unit.color_dark || unit.color),
-                weight: selected ? 4 : 2,
-                fillOpacity: selected ? 0.7 : 0.45,
+        layerKeys.forEach((key) => {
+            const badge = layerBadge(key, unit);
+
+            if (!badge) {
+                return;
+            }
+
+            const marker = L.marker(latlng, {
+                icon: L.divIcon({
+                    className: 'map-layer-icon',
+                    html: badge,
+                    iconSize: [0, 0],
+                    iconAnchor: [0, 0],
+                }),
+                title: badge.title,
+                alt: badge.title,
+                keyboard: true,
+                riseOnHover: true,
             });
 
-            if (selected) {
-                polygon.bringToFront();
+            marker.on('click', () => onSelect(id));
+            layerMarkers.get(key).set(id, marker);
+        });
+    });
+
+    const syncLayer = (key) => {
+        const group = layerGroups.get(key);
+
+        if (!group) {
+            return;
+        }
+
+        group.clearLayers();
+
+        if (!activeLayerKeys.has(key)) {
+            if (map.hasLayer(group)) {
+                map.removeLayer(group);
+            }
+
+            return;
+        }
+
+        if (!map.hasLayer(group)) {
+            group.addTo(map);
+        }
+
+        layerMarkers.get(key).forEach((marker, unitId) => {
+            if (unitMatchesHarvestFilter(unitsById.get(unitId))) {
+                group.addLayer(marker);
+            }
+        });
+    };
+
+    const setLayers = (keys) => {
+        activeLayerKeys.clear();
+
+        (Array.isArray(keys) ? keys : []).forEach((key) => {
+            if (layerGroups.has(key)) {
+                activeLayerKeys.add(key);
             }
         });
 
-        missingMarkers.forEach((marker, unitId) => {
-            const selected = unitId === selectedId;
+        layerKeys.forEach(syncLayer);
+        applyUnitStyles();
+    };
 
-            marker.setStyle({
-                radius: selected ? 11 : 8,
-                color: selected ? '#f59e0b' : '#b45309',
-                weight: selected ? 4 : 2,
-                fillColor: selected ? '#fbbf24' : '#f59e0b',
+    const setHarvestFilter = (states) => {
+        harvestFilterStates = Array.isArray(states) && states.length > 0
+            ? new Set(states.map(String))
+            : null;
+
+        layerKeys.forEach(syncLayer);
+        applyUnitStyles();
+    };
+
+    const fit = () => {
+        if (bounds.isValid()) {
+            map.fitBounds(bounds.pad(0.18), { padding: [24, 24], maxZoom: 18 });
+
+            return;
+        }
+
+        if (config.farm && Number.isFinite(config.farm.latitude) && Number.isFinite(config.farm.longitude)) {
+            map.setView([config.farm.latitude, config.farm.longitude], 16);
+
+            return;
+        }
+
+        map.setView([20, 0], 2);
+    };
+
+    fit();
+
+    const setSelected = (id) => {
+        selectedId = id === null || id === undefined ? null : Number(id);
+
+        applyUnitStyles();
+
+        if (selectedId !== null && polygons.has(selectedId)) {
+            polygons.get(selectedId).bringToFront();
+        }
+
+        layerMarkers.forEach((markers) => {
+            markers.forEach((marker, unitId) => {
+                const badge = marker.getElement()?.querySelector('.map-layer-marker');
+
+                badge?.classList.toggle('is-selected', unitId === selectedId);
             });
         });
     };
 
     return {
         setSelected,
+        setLayers,
+        setHarvestFilter,
+        fit,
         clear: () => setSelected(null),
         invalidate: () => map.invalidateSize({ pan: false }),
-        destroy: () => map.remove(),
+        destroy: () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+            map.remove();
+        },
     };
 }
 
@@ -747,6 +1178,13 @@ async function createParcelScene(container, config, onSelect) {
     originLng /= Math.max(1, coordinateCount);
 
     const cosLatitude = Math.cos(originLat * radians);
+    const unitsById3d = new Map(units.map((unit) => [Number(unit.id), unit]));
+    let harvestFilterStates3d = null;
+    let activeLayerKeys3d = new Set();
+    const unitMatchesHarvestFilter3d = (unit) => (
+        harvestFilterStates3d === null
+        || (unit?.harvest_state?.key && harvestFilterStates3d.has(unit.harvest_state.key))
+    );
     const projected = units.map((unit) => ({
         unit,
         points: unit.points.map(([lng, lat]) => ({
@@ -782,7 +1220,7 @@ async function createParcelScene(container, config, onSelect) {
     renderer.domElement.style.display = 'block';
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
-    renderer.domElement.setAttribute('aria-hidden', 'true');
+    renderer.domElement.setAttribute('role', 'application');
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -794,27 +1232,164 @@ async function createParcelScene(container, config, onSelect) {
     controls.maxDistance = span * 6 + 200;
     controls.target.set(0, extrusionHeight * 0.4, 0);
 
-    camera.position.set(span * 0.72, span * 0.78, span * 1.05);
+    const homePosition = new THREE.Vector3(span * 0.72, span * 0.78, span * 1.05);
+    const homeTarget = new THREE.Vector3(0, extrusionHeight * 0.4, 0);
+
+    camera.position.copy(homePosition);
+    controls.target.copy(homeTarget);
     controls.update();
 
     const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
+    const groundSize = span * 2.4 + 40;
+    const groundHalfSize = groundSize / 2;
+    const groundMaterial = new THREE.MeshStandardMaterial({
+        color: isDark() ? 0x10211a : 0xdceee2,
+        roughness: 1,
+        metalness: 0,
+    });
     const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(span * 2.4 + 40, span * 2.4 + 40),
-        new THREE.MeshStandardMaterial({
-            color: isDark() ? 0x10211a : 0xdceee2,
-            roughness: 1,
-            metalness: 0,
-        }),
+        new THREE.PlaneGeometry(groundSize, groundSize),
+        groundMaterial,
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.05;
+    ground.userData.hasImagery = false;
     scene.add(ground);
 
-    const grid = new THREE.GridHelper(span * 2.4 + 40, 24, 0x64748b, 0x94a3b8);
+    const grid = new THREE.GridHelper(groundSize, 24, 0x64748b, 0x94a3b8);
     grid.position.y = 0;
     grid.material.transparent = true;
     grid.material.opacity = isDark() ? 0.25 : 0.3;
     scene.add(grid);
+
+    const imageryStatus = container.closest('[data-map-panel]')?.querySelector('[data-map-3d-imagery-status]') ?? null;
+    const showImageryStatus = () => {
+        if (imageryStatus) {
+            imageryStatus.hidden = false;
+        }
+    };
+
+    const loadGroundImagery = async () => {
+        try {
+            const latHalf = groundHalfSize / (radians * radius);
+            const lngHalf = Math.min(
+                180,
+                groundHalfSize / (radians * radius * Math.max(cosLatitude, 0.01)),
+            );
+            const west = Math.max(-180, originLng - lngHalf);
+            const south = Math.max(-85, originLat - latHalf);
+            const east = Math.min(180, originLng + lngHalf);
+            const north = Math.min(85, originLat + latHalf);
+
+            const lonToTile = (lng, zoom) => ((lng + 180) / 360) * 2 ** zoom;
+            const latToTile = (lat, zoom) => {
+                const sin = Math.sin(lat * radians);
+
+                return (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * 2 ** zoom;
+            };
+            const tileRange = (zoom) => ({
+                xMin: Math.floor(lonToTile(west, zoom)),
+                xMax: Math.floor(lonToTile(east, zoom)),
+                yMin: Math.floor(latToTile(north, zoom)),
+                yMax: Math.floor(latToTile(south, zoom)),
+            });
+
+            const targetPixels = 2048;
+            const desiredZoom = Math.log2(
+                (156543.03392 * Math.cos(originLat * radians) * targetPixels) / groundSize,
+            );
+            let zoom = Math.min(19, Math.max(2, Math.floor(desiredZoom)));
+            let range = tileRange(zoom);
+
+            while ((range.xMax - range.xMin + 1) * (range.yMax - range.yMin + 1) > 144 && zoom > 2) {
+                zoom -= 1;
+                range = tileRange(zoom);
+            }
+
+            const maxIndex = 2 ** zoom - 1;
+            const jobs = [];
+
+            for (let y = range.yMin; y <= range.yMax; y += 1) {
+                for (let x = range.xMin; x <= range.xMax; x += 1) {
+                    const url = SATELLITE_TILE_URL
+                        .replace('{z}', String(zoom))
+                        .replace('{y}', String(Math.max(0, Math.min(maxIndex, y))))
+                        .replace('{x}', String(Math.max(0, Math.min(maxIndex, x))));
+
+                    jobs.push(new Promise((resolve, reject) => {
+                        const image = new Image();
+                        image.crossOrigin = 'anonymous';
+                        image.decoding = 'async';
+                        image.onload = () => resolve({ image, x, y });
+                        image.onerror = () => reject(new Error('Satellite tile unavailable'));
+                        image.src = url;
+                    }));
+                }
+            }
+
+            const images = await Promise.all(jobs);
+            const stitched = document.createElement('canvas');
+            const stitchWidth = (range.xMax - range.xMin + 1) * 256;
+            const stitchHeight = (range.yMax - range.yMin + 1) * 256;
+
+            stitched.width = stitchWidth;
+            stitched.height = stitchHeight;
+
+            const stitchContext = stitched.getContext('2d');
+
+            images.forEach(({ image, x, y }) => {
+                stitchContext.drawImage(
+                    image,
+                    (x - range.xMin) * 256,
+                    (y - range.yMin) * 256,
+                    256,
+                    256,
+                );
+            });
+
+            const left = lonToTile(west, zoom) * 256 - range.xMin * 256;
+            const top = latToTile(north, zoom) * 256 - range.yMin * 256;
+            const width = (lonToTile(east, zoom) - lonToTile(west, zoom)) * 256;
+            const height = (latToTile(south, zoom) - latToTile(north, zoom)) * 256;
+            const textureCanvas = document.createElement('canvas');
+
+            textureCanvas.width = Math.max(1, Math.round(width));
+            textureCanvas.height = Math.max(1, Math.round(height));
+
+            const textureContext = textureCanvas.getContext('2d');
+
+            textureContext.drawImage(
+                stitched,
+                left,
+                top,
+                width,
+                height,
+                0,
+                0,
+                textureCanvas.width,
+                textureCanvas.height,
+            );
+
+            const texture = new THREE.CanvasTexture(textureCanvas);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.flipY = false;
+            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+            groundMaterial.map = texture;
+            groundMaterial.color.setHex(0xffffff);
+            groundMaterial.needsUpdate = true;
+            ground.userData.hasImagery = true;
+            grid.material.opacity = isDark() ? 0.18 : 0.14;
+
+            if (imageryStatus) {
+                imageryStatus.hidden = true;
+            }
+        } catch (error) {
+            showImageryStatus();
+        }
+    };
+
+    loadGroundImagery();
 
     scene.add(new THREE.HemisphereLight(0xf8fafc, 0x1f2937, 1.45));
 
@@ -886,6 +1461,233 @@ async function createParcelScene(container, config, onSelect) {
         meshById.set(Number(unit.id), mesh);
     });
 
+    const layerGroups3d = new Map(
+        [
+            'crops',
+            'upcoming_activities',
+            'late_activities',
+            'irrigation',
+            'alerts',
+            'campaigns',
+            'harvests',
+            'status',
+            'harvest_state',
+        ].map((key) => [key, new THREE.Group()]),
+    );
+    const numberFr3d = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
+    const irrigationColors = {
+        ok: '#0ea5e9',
+        approaching: '#f59e0b',
+        exceeded: '#dc2626',
+        unquoted: '#64748b',
+        unavailable: '#94a3b8',
+    };
+
+    layerGroups3d.forEach((group) => {
+        group.visible = false;
+        scene.add(group);
+    });
+
+    const roundedRect = (context, x, y, width, height, radius) => {
+        const r = Math.min(radius, width / 2, height / 2);
+
+        context.beginPath();
+        context.moveTo(x + r, y);
+        context.lineTo(x + width - r, y);
+        context.quadraticCurveTo(x + width, y, x + width, y + r);
+        context.lineTo(x + width, y + height - r);
+        context.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+        context.lineTo(x + r, y + height);
+        context.quadraticCurveTo(x, y + height, x, y + height - r);
+        context.lineTo(x, y + r);
+        context.quadraticCurveTo(x, y, x + r, y);
+        context.closePath();
+    };
+
+    const labelSprite = (text, accent) => {
+        const ratio = Math.min(window.devicePixelRatio || 1, 2);
+        const fontSize = 28;
+        const paddingX = 16;
+        const paddingY = 10;
+        const display = text.length > 38 ? `${text.slice(0, 35)}…` : text;
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        const font = `600 ${fontSize}px "Inter", "Segoe UI", sans-serif`;
+
+        context.font = font;
+        const width = Math.max(80, Math.ceil(context.measureText(display).width + paddingX * 2));
+        const height = fontSize + paddingY * 2;
+
+        canvas.width = width * ratio;
+        canvas.height = height * ratio;
+
+        context.scale(ratio, ratio);
+        context.font = font;
+        context.textBaseline = 'middle';
+
+        roundedRect(context, 2, 2, width - 4, height - 4, 16);
+        context.fillStyle = 'rgba(6, 48, 38, 0.9)';
+        context.fill();
+        context.lineWidth = 2.5;
+        context.strokeStyle = accent;
+        context.stroke();
+
+        context.fillStyle = '#ffffff';
+        context.fillText(display, paddingX, height / 2);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthWrite: false,
+        }));
+        const worldHeight = Math.max(1.4, span * 0.03);
+
+        sprite.scale.set(worldHeight * width / height, worldHeight, 1);
+
+        return sprite;
+    };
+
+    const addLabel = (key, unitId, center, text, accent, heightFactor, phase) => {
+        const group = layerGroups3d.get(key);
+        const sprite = labelSprite(text, accent);
+        const baseY = extrusionHeight + span * heightFactor;
+
+        sprite.position.set(center.x, baseY, center.z);
+        sprite.userData.unitId = Number(unitId);
+        group.add(sprite);
+    };
+
+    const addRing = (key, unitId, center, color, radius, y, phase) => {
+        const group = layerGroups3d.get(key);
+        const ring = new THREE.Mesh(
+            new THREE.TorusGeometry(radius, Math.max(0.04, span * 0.003), 8, 36),
+            new THREE.MeshBasicMaterial({
+                color: new THREE.Color(color),
+                transparent: true,
+                opacity: 0.65,
+                depthWrite: false,
+            }),
+        );
+
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(center.x, y, center.z);
+        ring.userData.unitId = Number(unitId);
+        group.add(ring);
+    };
+
+    const addColumn = (key, unitId, center, color, height, phase) => {
+        const group = layerGroups3d.get(key);
+        const column = new THREE.Mesh(
+            new THREE.CylinderGeometry(span * 0.004, span * 0.013, height, 12, 1, true),
+            new THREE.MeshBasicMaterial({
+                color: new THREE.Color(color),
+                transparent: true,
+                opacity: 0.3,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+            }),
+        );
+
+        column.position.set(center.x, extrusionHeight + height / 2, center.z);
+        column.userData.unitId = Number(unitId);
+        group.add(column);
+    };
+
+    projected.forEach(({ unit, points }, index) => {
+        const layers = unit.layers ?? {};
+        const center = {
+            x: points.reduce((sum, point) => sum + point.x, 0) / points.length - centerX,
+            z: points.reduce((sum, point) => sum + point.z, 0) / points.length - centerZ,
+        };
+        const phase = index * 0.9;
+        const unitId = Number(unit.id);
+
+        if (layers.crops?.available) {
+            const suffix = layers.crops.count > 1 ? ` +${layers.crops.count - 1}` : '';
+            addLabel('crops', unitId, center, `${layers.crops.primary_label ?? 'Culture'}${suffix}`, unit.color, 0.18, phase);
+        }
+
+        if (layers.campaigns?.available) {
+            const suffix = layers.campaigns.count > 1 ? 's' : '';
+            addLabel('campaigns', unitId, center, `${layers.campaigns.count} campagne${suffix}`, layers.campaigns.color ?? '#0284c7', 0.15, phase + 0.2);
+        }
+
+        if (layers.upcoming_activities?.available) {
+            addLabel('upcoming_activities', unitId, center, `${layers.upcoming_activities.count} à venir`, '#0284c7', 0.12, phase + 0.4);
+        }
+
+        if (layers.late_activities?.available) {
+            addLabel('late_activities', unitId, center, `! ${layers.late_activities.count} en retard`, '#dc2626', 0.09, phase + 0.6);
+            addRing('late_activities', unitId, center, '#dc2626', span * 0.03, extrusionHeight + 0.32, phase + 0.4);
+            addColumn('late_activities', unitId, center, '#dc2626', span * 0.07, phase + 0.5);
+        }
+
+        if (layers.harvests?.available) {
+            const suffix = layers.harvests.count > 1 ? 's' : '';
+            addLabel('harvests', unitId, center, `${layers.harvests.count} récolte${suffix}`, '#65a30d', 0.06, phase + 0.7);
+        }
+
+        if (layers.alerts?.available) {
+            addLabel('alerts', unitId, center, `! ${layers.alerts.count} alerte${layers.alerts.count > 1 ? 's' : ''}`, '#dc2626', 0.24, phase + 0.8);
+            addRing('alerts', unitId, center, '#dc2626', span * 0.026, extrusionHeight + 0.35, phase);
+            addColumn('alerts', unitId, center, '#dc2626', span * 0.075, phase + 0.2);
+        }
+
+        if (layers.irrigation?.available) {
+            const color = irrigationColors[layers.irrigation.status] ?? irrigationColors.unquoted;
+            const progress = Math.max(0, Math.min(100, layers.irrigation.usage_percent ?? 0));
+            const text = layers.irrigation.usage_percent !== null
+                ? `Eau ${numberFr3d.format(layers.irrigation.usage_percent)} %`
+                : `Eau ${numberFr3d.format(layers.irrigation.used_m3)} m³`;
+
+            addLabel('irrigation', unitId, center, text, color, 0.03, phase + 1.0);
+            addRing('irrigation', unitId, center, color, span * 0.034, extrusionHeight + 0.2, phase + 1.2);
+            addColumn('irrigation', unitId, center, color, span * (0.02 + 0.1 * progress / 100), phase + 1.4);
+        }
+
+        if (layers.status?.available) {
+            addLabel('status', unitId, center, layers.status.label, layers.status.color, 0.0, phase + 1.6);
+            addRing('status', unitId, center, layers.status.color, span * 0.042, extrusionHeight + 0.1, phase + 1.8);
+        }
+
+        if (layers.harvest_state?.available) {
+            addLabel('harvest_state', unitId, center, layers.harvest_state.label, layers.harvest_state.color, -0.03, phase + 2.0);
+        }
+    });
+
+    const applyHarvestVisibility3d = () => {
+        layerGroups3d.forEach((group) => {
+            group.children.forEach((child) => {
+                const unitId = Number(child.userData.unitId);
+                child.visible = !Number.isFinite(unitId)
+                    || unitMatchesHarvestFilter3d(unitsById3d.get(unitId));
+            });
+        });
+    };
+
+    const setLayers = (keys) => {
+        activeLayerKeys3d = new Set(Array.isArray(keys) ? keys : []);
+
+        layerGroups3d.forEach((group, key) => {
+            group.visible = activeLayerKeys3d.has(key);
+        });
+
+        applyHarvestVisibility3d();
+        applyMeshStyles();
+    };
+
+    const setHarvestFilter = (states) => {
+        harvestFilterStates3d = Array.isArray(states) && states.length > 0
+            ? new Set(states.map(String))
+            : null;
+
+        applyHarvestVisibility3d();
+        applyMeshStyles();
+    };
+
     const resize = () => {
         const width = container.clientWidth || 1;
         const height = container.clientHeight || 1;
@@ -899,41 +1701,67 @@ async function createParcelScene(container, config, onSelect) {
     const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(resize);
     resizeObserver?.observe(container);
 
-    const setSelected = (id) => {
-        const selectedId = id === null || id === undefined ? null : Number(id);
+    let selectedId = null;
+    let hoveredId = null;
+
+    const applyMeshStyles = () => {
         const edgeColor = isDark() ? 0xd1fae5 : 0x0b1220;
+        const stateLayerActive = activeLayerKeys3d.has('harvest_state');
 
         meshes.forEach((mesh) => {
-            const selected = mesh.userData.id === selectedId;
+            const id = mesh.userData.id;
+            const unit = unitsById3d.get(id);
+            const selected = id === selectedId;
+            const hovered = id === hoveredId;
+            const matchesFilter = unitMatchesHarvestFilter3d(unit);
+            const stateColor = stateLayerActive && unit?.harvest_state?.color
+                ? new THREE.Color(unit.harvest_state.color)
+                : null;
+            const topColor = stateColor ?? new THREE.Color(unit?.color ?? '#0f766e');
+            const sideColor = stateColor
+                ? stateColor.clone().multiplyScalar(0.72)
+                : new THREE.Color(unit?.color_dark || unit?.color || '#0f766e');
+
+            mesh.userData.topMaterial.color.copy(topColor);
+            mesh.userData.sideMaterial.color.copy(sideColor);
 
             [mesh.userData.topMaterial, mesh.userData.sideMaterial].forEach((material) => {
-                material.emissive.setHex(selected ? 0xf59e0b : 0x000000);
-                material.emissiveIntensity = selected ? 0.42 : 0;
+                material.transparent = !matchesFilter;
+                material.opacity = matchesFilter ? 1 : 0.1;
+                material.needsUpdate = true;
+                material.emissive.setHex(selected ? 0xf59e0b : (hovered ? 0xffffff : 0x000000));
+                material.emissiveIntensity = matchesFilter ? (selected ? 0.42 : (hovered ? 0.12 : 0)) : 0;
             });
 
-            mesh.userData.edges.material.color.setHex(selected ? 0xfbbf24 : edgeColor);
-            mesh.userData.edges.material.opacity = selected ? 0.95 : 0.35;
+            mesh.userData.edges.material.color.setHex(
+                !matchesFilter ? 0x94a3b8 : (selected ? 0xfbbf24 : (hovered ? 0xfde68a : edgeColor)),
+            );
+            mesh.userData.edges.material.opacity = !matchesFilter
+                ? 0.05
+                : (selected ? 0.95 : (hovered ? 0.65 : 0.35));
         });
+    };
+
+    const setSelected = (id) => {
+        selectedId = id === null || id === undefined ? null : Number(id);
+        applyMeshStyles();
 
         if (selectedId !== null && meshById.has(selectedId)) {
-            const mesh = meshById.get(selectedId);
-            mesh.userData.selected = true;
+            meshById.get(selectedId).userData.selected = true;
         }
     };
 
     const applyTheme = () => {
         const dark = isDark();
 
-        ground.material.color.setHex(dark ? 0x10211a : 0xdceee2);
-        grid.material.opacity = dark ? 0.25 : 0.3;
+        if (!ground.userData.hasImagery) {
+            groundMaterial.color.setHex(dark ? 0x10211a : 0xdceee2);
+            grid.material.opacity = dark ? 0.25 : 0.3;
+        } else {
+            grid.material.opacity = dark ? 0.18 : 0.14;
+        }
 
-        meshes.forEach((mesh) => {
-            mesh.userData.edges.material.color.setHex(
-                mesh.userData.edges.material.opacity > 0.5
-                    ? 0xfbbf24
-                    : (dark ? 0xd1fae5 : 0x0b1220),
-            );
-        });
+        applyMeshStyles();
     };
 
     const themeObserver = new MutationObserver(applyTheme);
@@ -941,6 +1769,9 @@ async function createParcelScene(container, config, onSelect) {
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
+    const visibleHits = (hits) => hits.filter(
+        (hit) => unitMatchesHarvestFilter3d(unitsById3d.get(Number(hit.object.userData.id))),
+    );
     let pointerDown = null;
 
     renderer.domElement.addEventListener('pointerdown', (event) => {
@@ -967,7 +1798,7 @@ async function createParcelScene(container, config, onSelect) {
         );
         raycaster.setFromCamera(pointer, camera);
 
-        const hits = raycaster.intersectObjects(meshes, false);
+        const hits = visibleHits(raycaster.intersectObjects(meshes, false));
 
         if (hits.length > 0) {
             onSelect(Number(hits[0].object.userData.id));
@@ -982,9 +1813,52 @@ async function createParcelScene(container, config, onSelect) {
             -((event.clientY - rect.top) / rect.height) * 2 + 1,
         );
         raycaster.setFromCamera(pointer, camera);
-        renderer.domElement.style.cursor = raycaster.intersectObjects(meshes, false).length > 0
-            ? 'pointer'
-            : 'grab';
+
+        const hits = visibleHits(raycaster.intersectObjects(meshes, false));
+        const hitId = hits.length > 0 ? Number(hits[0].object.userData.id) : null;
+
+        if (hitId !== hoveredId) {
+            hoveredId = hitId;
+            applyMeshStyles();
+        }
+
+        renderer.domElement.style.cursor = hitId !== null ? 'pointer' : 'grab';
+    });
+
+    renderer.domElement.addEventListener('pointerleave', () => {
+        if (hoveredId !== null) {
+            hoveredId = null;
+            applyMeshStyles();
+        }
+    });
+
+    renderer.domElement.setAttribute('tabindex', '0');
+    renderer.domElement.setAttribute(
+        'aria-label',
+        'Vue 3D extrudée. Utilisez les flèches gauche et droite pour parcourir les parcelles, puis Entrée pour ouvrir leur fiche.',
+    );
+
+    let keyboardIndex = -1;
+
+    renderer.domElement.addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(event.key)) {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            keyboardIndex = (keyboardIndex + (event.key === 'ArrowRight' ? 1 : -1) + units.length) % units.length;
+            hoveredId = Number(units[keyboardIndex].id);
+            applyMeshStyles();
+            onSelect(hoveredId);
+
+            return;
+        }
+
+        if (hoveredId !== null) {
+            onSelect(hoveredId);
+        }
     });
 
     let active = true;
@@ -1007,7 +1881,14 @@ async function createParcelScene(container, config, onSelect) {
 
     return {
         setSelected,
+        setLayers,
+        setHarvestFilter,
         resize,
+        reset: () => {
+            camera.position.copy(homePosition);
+            controls.target.copy(homeTarget);
+            controls.update();
+        },
         setActive: (value) => {
             const next = Boolean(value);
 
@@ -1022,6 +1903,25 @@ async function createParcelScene(container, config, onSelect) {
             active = false;
             resizeObserver?.disconnect();
             themeObserver.disconnect();
+
+            layerGroups3d.forEach((group) => {
+                group.traverse((object) => {
+                    object.geometry?.dispose();
+
+                    if (!object.material) {
+                        return;
+                    }
+
+                    const materials = Array.isArray(object.material) ? object.material : [object.material];
+
+                    materials.forEach((material) => {
+                        material.map?.dispose();
+                        material.dispose();
+                    });
+                });
+                scene.remove(group);
+            });
+
             controls.dispose();
             renderer.dispose();
             renderer.domElement.remove();
@@ -1065,6 +1965,9 @@ async function initFarmMap() {
     const map2dElement = root.querySelector('[data-map-2d]');
     const map3dElement = root.querySelector('[data-map-3d]');
     const empty3d = root.querySelector('[data-map-empty="3d"]');
+    const loadError2d = root.querySelector('[data-map-load-error]');
+    const resetButtons = [...root.querySelectorAll('[data-map-reset]')];
+    const printButtons = [...root.querySelectorAll('[data-map-print]')];
     const hasBoundaries = units.some(
         (unit) => unit.has_boundary && Array.isArray(unit.points) && unit.points.length >= 3,
     );
@@ -1074,6 +1977,169 @@ async function initFarmMap() {
     let selectedId = null;
     let currentMode = null;
     let sceneLoading = false;
+
+    const layerInputs = [...root.querySelectorAll('[data-map-layer]')];
+    const layerLegends = new Map(
+        [...root.querySelectorAll('[data-layer-legend]')].map((element) => [element.dataset.layerLegend, element]),
+    );
+    const layerStatus = root.querySelector('[data-map-layer-status]');
+    const modeStatusText = root.querySelector('[data-map-mode-status-text]');
+    const printLayerRows = [...root.querySelectorAll('[data-print-layer]')];
+    const harvestFilterButtons = [...root.querySelectorAll('[data-harvest-filter]')];
+    const harvestEvents = [...root.querySelectorAll('[data-harvest-event]')];
+    const harvestMonths = [...root.querySelectorAll('[data-harvest-month]')];
+    const harvestEmpty = root.querySelector('[data-harvest-filter-empty]');
+    const harvestFilterStatus = root.querySelector('[data-harvest-filter-status]');
+    const layerLabels = new Map(
+        (Array.isArray(config.layers) ? config.layers : []).map((layer) => [layer.key, layer.label]),
+    );
+    const activeLayers = new Set(
+        layerInputs
+            .filter((input) => input.checked && !input.disabled)
+            .map((input) => input.dataset.mapLayer),
+    );
+    let activeHarvestStates = null;
+    let activeHarvestLabel = 'Toutes';
+    let activeHarvestKey = 'all';
+
+    const matchesHarvestFilter = (unit) => (
+        activeHarvestStates === null
+        || (unit?.harvest_state?.key && activeHarvestStates.has(unit.harvest_state.key))
+    );
+
+    const syncLayers = () => {
+        const keys = [...activeLayers];
+
+        map2d?.setLayers(keys);
+        scene3d?.setLayers(keys);
+        map2d?.setHarvestFilter(activeHarvestStates === null ? null : [...activeHarvestStates]);
+        scene3d?.setHarvestFilter(activeHarvestStates === null ? null : [...activeHarvestStates]);
+    };
+
+    const applyHarvestFilter = (states, label, key) => {
+        activeHarvestStates = Array.isArray(states) && states.length > 0 ? new Set(states) : null;
+        activeHarvestLabel = label;
+        activeHarvestKey = key;
+
+        if (activeHarvestStates !== null && activeLayers.has('harvest_state') === false) {
+            activeLayers.add('harvest_state');
+            updateLayerUi(true);
+        }
+
+        let visibleUnits = 0;
+
+        details.forEach((detail) => {
+            const matches = activeHarvestStates === null
+                || activeHarvestStates.has(detail.dataset.harvestState);
+
+            if (matches) {
+                visibleUnits += 1;
+            } else {
+                hideDetail(detail);
+            }
+        });
+
+        plots.forEach((plot) => {
+            const matches = activeHarvestStates === null
+                || activeHarvestStates.has(plot.dataset.harvestState);
+
+            plot.classList.toggle('is-filtered-out', !matches);
+            plot.setAttribute('aria-hidden', matches ? 'false' : 'true');
+        });
+
+        quickSelects.forEach((button) => {
+            const matches = activeHarvestStates === null
+                || activeHarvestStates.has(button.dataset.harvestState);
+
+            button.classList.toggle('is-filtered-out', !matches);
+            button.disabled = !matches;
+        });
+
+        harvestEvents.forEach((event) => {
+            const matches = activeHarvestStates === null
+                || activeHarvestStates.has(event.dataset.harvestState);
+
+            event.hidden = !matches;
+        });
+
+        harvestMonths.forEach((month) => {
+            month.hidden = !month.querySelector('[data-harvest-event]:not([hidden])');
+        });
+
+        if (harvestEmpty) {
+            harvestEmpty.hidden = harvestEvents.some((event) => !event.hidden);
+        }
+
+        harvestFilterButtons.forEach((button) => {
+            const active = button.dataset.harvestFilter === activeHarvestKey;
+
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+
+        if (harvestFilterStatus) {
+            harvestFilterStatus.textContent = activeHarvestStates === null
+                ? 'Toutes les parcelles sont affichées.'
+                : `${label} : ${visibleUnits} parcelle${visibleUnits > 1 ? 's' : ''} affichée${visibleUnits > 1 ? 's' : ''}.`;
+        }
+
+        syncLayers();
+    };
+
+    const updateLayerUi = (animate = false) => {
+        layerInputs.forEach((input) => {
+            const key = input.dataset.mapLayer;
+            const active = activeLayers.has(key) && !input.disabled;
+            const legend = layerLegends.get(key);
+
+            input.checked = active;
+
+            if (!legend) {
+                return;
+            }
+
+            if (!active) {
+                legend.hidden = true;
+                legend.classList.remove('map-layer-legend-enter');
+
+                return;
+            }
+
+            const wasHidden = legend.hidden;
+            legend.hidden = false;
+
+            if (animate && wasHidden && !REDUCED_MOTION) {
+                legend.classList.remove('map-layer-legend-enter');
+                window.requestAnimationFrame(() => legend.classList.add('map-layer-legend-enter'));
+            }
+        });
+
+        printLayerRows.forEach((row) => {
+            row.hidden = !activeLayers.has(row.dataset.printLayer);
+        });
+
+        syncLayers();
+    };
+
+    const setLayer = (key, enabled) => {
+        if (enabled) {
+            activeLayers.add(key);
+        } else {
+            activeLayers.delete(key);
+        }
+
+        updateLayerUi(true);
+
+        if (layerStatus) {
+            layerStatus.textContent = `${layerLabels.get(key) ?? key} ${enabled ? 'activée' : 'désactivée'}.`;
+        }
+    };
+
+    layerInputs.forEach((input) => {
+        input.addEventListener('change', () => setLayer(input.dataset.mapLayer, input.checked));
+    });
+
+    updateLayerUi();
 
     const updateChips = () => {
         quickSelects.forEach((button) => {
@@ -1094,15 +2160,44 @@ async function initFarmMap() {
         });
     };
 
+    const hideDetail = (detail) => {
+        if (detail.hidden) {
+            return;
+        }
+
+        window.clearTimeout(detail.hideTimer);
+        detail.classList.remove('map-detail-enter');
+
+        if (REDUCED_MOTION) {
+            detail.hidden = true;
+
+            return;
+        }
+
+        detail.classList.add('map-detail-leave');
+        detail.hideTimer = window.setTimeout(() => {
+            detail.hidden = true;
+            detail.classList.remove('map-detail-leave');
+        }, 180);
+    };
+
+    const showOverview = () => {
+        if (!overview) {
+            return;
+        }
+
+        overview.hidden = false;
+        overview.classList.remove('map-overview-enter');
+
+        if (!REDUCED_MOTION) {
+            window.requestAnimationFrame(() => overview.classList.add('map-overview-enter'));
+        }
+    };
+
     const close = () => {
         selectedId = null;
-        details.forEach((detail) => {
-            detail.hidden = true;
-        });
-
-        if (overview) {
-            overview.hidden = false;
-        }
+        details.forEach(hideDetail);
+        showOverview();
 
         map2d?.clear();
         scene3d?.setSelected(null);
@@ -1112,17 +2207,25 @@ async function initFarmMap() {
 
     const open = (id) => {
         const numericId = Number(id);
+        const unit = unitsById.get(numericId);
         const target = details.find((detail) => detail.dataset.mapDetail === `plot-detail-${numericId}`);
 
-        if (!target || !unitsById.has(numericId)) {
+        if (!target || !unit || !matchesHarvestFilter(unit)) {
             return;
         }
 
         selectedId = numericId;
         details.forEach((detail) => {
-            detail.hidden = detail !== target;
-            detail.classList.remove('map-detail-enter');
+            if (detail === target) {
+                return;
+            }
+
+            hideDetail(detail);
         });
+
+        window.clearTimeout(target.hideTimer);
+        target.classList.remove('map-detail-leave', 'map-detail-enter');
+        target.hidden = false;
 
         if (!REDUCED_MOTION) {
             window.requestAnimationFrame(() => target.classList.add('map-detail-enter'));
@@ -1149,7 +2252,14 @@ async function initFarmMap() {
 
         currentMode = mode;
         panels.forEach((panel) => {
-            panel.hidden = panel.dataset.mapPanel !== mode;
+            const active = panel.dataset.mapPanel === mode;
+
+            panel.hidden = !active;
+            panel.classList.remove('map-panel-enter');
+
+            if (active && !REDUCED_MOTION) {
+                window.requestAnimationFrame(() => panel.classList.add('map-panel-enter'));
+            }
         });
         modeButtons.forEach((button) => {
             const active = button.dataset.mapMode === mode;
@@ -1158,13 +2268,35 @@ async function initFarmMap() {
             button.setAttribute('aria-pressed', active ? 'true' : 'false');
         });
 
+        const modeLabels = {
+            '2d': 'Vue 2D · contours enregistrés sur imagerie satellite ou plan',
+            '3d': 'Vue 3D · contours extrudés sur imagerie plaquée à plat, sans relief mesuré',
+            'plan': 'Plan indicatif · surfaces déclarées, sans géolocalisation',
+        };
+
+        if (modeStatusText) {
+            modeStatusText.textContent = modeLabels[mode] ?? modeLabels.plan;
+        }
+
+        resetButtons.forEach((button) => {
+            button.hidden = mode === 'plan';
+        });
+
         if (mode === '2d') {
             if (!map2d && map2dElement) {
                 try {
                     map2d = await createParcelMap(map2dElement, config, open);
+                    map2d.setLayers([...activeLayers]);
+                    map2d.setHarvestFilter(activeHarvestStates === null ? null : [...activeHarvestStates]);
                     map2d.setSelected(selectedId);
+
+                    if (loadError2d) {
+                        loadError2d.hidden = true;
+                    }
                 } catch (error) {
-                    map2dElement.textContent = 'Impossible de charger la carte 2D.';
+                    if (loadError2d) {
+                        loadError2d.hidden = false;
+                    }
                 }
             }
 
@@ -1187,6 +2319,8 @@ async function initFarmMap() {
 
                     if (scene) {
                         scene3d = scene;
+                        scene3d.setLayers([...activeLayers]);
+                        scene3d.setHarvestFilter(activeHarvestStates === null ? null : [...activeHarvestStates]);
                         scene3d.setSelected(selectedId);
                         scene3d.setActive(currentMode === '3d');
                     }
@@ -1216,6 +2350,43 @@ async function initFarmMap() {
         });
     });
 
+    resetButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            if (currentMode === '3d') {
+                scene3d?.reset();
+            } else {
+                map2d?.fit();
+            }
+        });
+    });
+
+    const preparePrint = async () => {
+        if (hasBoundaries && currentMode !== '2d') {
+            await setMode('2d');
+        }
+
+        map2d?.invalidate();
+
+        await new Promise((resolve) => {
+            window.requestAnimationFrame(() => window.requestAnimationFrame(resolve));
+        });
+    };
+
+    printButtons.forEach((button) => {
+        button.addEventListener('click', async () => {
+            await preparePrint();
+            window.print();
+        });
+    });
+
+    window.addEventListener('beforeprint', () => {
+        if (hasBoundaries && currentMode === '3d') {
+            setMode('2d');
+        }
+
+        map2d?.invalidate();
+    });
+
     plots.forEach((plot, index) => {
         plot.setAttribute('aria-pressed', 'false');
         plot.style.setProperty('--plot-index', index);
@@ -1234,6 +2405,29 @@ async function initFarmMap() {
         });
     });
 
+    harvestFilterButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const states = (button.dataset.harvestStates ?? '').split(',').filter(Boolean);
+            const filterStates = button.dataset.harvestFilter === 'all' || states.length === 0
+                ? null
+                : new Set(states);
+
+            if (selectedId !== null && filterStates !== null) {
+                const selectedUnit = unitsById.get(selectedId);
+
+                if (!selectedUnit?.harvest_state?.key || !filterStates.has(selectedUnit.harvest_state.key)) {
+                    close();
+                }
+            }
+
+            applyHarvestFilter(
+                filterStates === null ? null : [...filterStates],
+                button.dataset.harvestLabel ?? 'Toutes',
+                button.dataset.harvestFilter ?? 'all',
+            );
+        });
+    });
+
     root.querySelectorAll('[data-map-close]').forEach((button) => {
         button.addEventListener('click', close);
     });
@@ -1243,6 +2437,8 @@ async function initFarmMap() {
             close();
         }
     });
+
+    applyHarvestFilter(null, 'Toutes', 'all');
 
     await setMode(config.default_mode === 'plan' ? 'plan' : '2d');
 }
@@ -1262,7 +2458,20 @@ async function initBoundaryEditor() {
     const status = document.querySelector('[data-boundary-status]');
     const measure = document.querySelector('[data-boundary-measure]');
     const removeInput = form?.querySelector('input[name="remove_boundary"]');
-    const L = (await import('leaflet')).default;
+    const loadError = document.querySelector('[data-boundary-load-error]');
+    const tileStatus = document.querySelector('[data-boundary-tile-status]');
+
+    let L;
+
+    try {
+        L = (await import('leaflet')).default;
+    } catch (error) {
+        if (loadError) {
+            loadError.hidden = false;
+        }
+
+        return;
+    }
 
     const map = L.map(container, {
         zoomControl: true,
@@ -1270,10 +2479,40 @@ async function initBoundaryEditor() {
         worldCopyJump: true,
     });
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
+
+    const showTileStatus = (message) => {
+        if (tileStatus) {
+            tileStatus.textContent = message;
+            tileStatus.hidden = false;
+        }
+    };
+
+    const hideTileStatus = () => {
+        if (tileStatus) {
+            tileStatus.hidden = true;
+        }
+    };
+
+    tiles.on('tileerror', () => {
+        showTileStatus('Fond de carte indisponible (réseau faible). Le dessin reste possible, mais sans repère visuel du terrain.');
+    });
+    tiles.on('tileload', hideTileStatus);
+
+    window.addEventListener('online', () => {
+        hideTileStatus();
+        tiles.redraw();
+    });
+    window.addEventListener('offline', () => {
+        showTileStatus('Hors connexion : le fond de carte ne peut pas être chargé.');
+    });
+
+    if (!navigator.onLine) {
+        showTileStatus('Hors connexion : le fond de carte ne peut pas être chargé.');
+    }
 
     let points = boundaryPointsFromValue(input?.value ?? '');
     let shapeLayer = null;
@@ -1370,14 +2609,26 @@ async function initBoundaryEditor() {
     const initialCenterLng = Number(container.dataset.centerLng);
     const initialZoom = Number(container.dataset.zoom) || 16;
 
-    if (points.length >= 1) {
-        const bounds = L.latLngBounds(points.map(([lng, lat]) => [lat, lng]));
-        map.fitBounds(bounds.pad(0.25), { padding: [24, 24], maxZoom: 18 });
-    } else if (Number.isFinite(initialCenterLat) && Number.isFinite(initialCenterLng)) {
-        map.setView([initialCenterLat, initialCenterLng], initialZoom);
-    } else {
+    const fitView = () => {
+        if (points.length >= 1) {
+            const bounds = L.latLngBounds(points.map(([lng, lat]) => [lat, lng]));
+            map.fitBounds(bounds.pad(0.25), { padding: [24, 24], maxZoom: 18 });
+
+            return;
+        }
+
+        if (Number.isFinite(initialCenterLat) && Number.isFinite(initialCenterLng)) {
+            map.setView([initialCenterLat, initialCenterLng], initialZoom);
+
+            return;
+        }
+
         map.setView([20, 0], 2);
-    }
+    };
+
+    fitView();
+
+    document.querySelector('[data-boundary-fit]')?.addEventListener('click', fitView);
 
     map.on('click', (event) => {
         points.push([event.latlng.lng, event.latlng.lat]);
@@ -1506,7 +2757,6 @@ function init() {
     initOffline();
     initReveal();
     initCounters();
-    initTableRows();
     initNavigation();
     initScrollProgress();
     initSidebarToggle();

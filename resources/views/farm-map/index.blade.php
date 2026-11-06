@@ -3,15 +3,15 @@
 @section('title', 'Plan de l’exploitation')
 
 @section('content')
-    <div data-farm-map>
-        <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-800 to-teal-700 px-5 py-6 text-white shadow-xl shadow-emerald-950/20 animate-fade-in-down sm:px-8 sm:py-8">
-            <div aria-hidden="true" class="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-emerald-400/20 blur-3xl animate-blob"></div>
-            <div aria-hidden="true" class="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl animate-blob" style="animation-delay: -8s"></div>
+    <div data-farm-map data-has-boundaries="{{ $map['stats']['with_boundary'] > 0 ? 'true' : 'false' }}">
+        <section data-print-hide class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-800 to-teal-700 px-5 py-6 text-white shadow-xl shadow-emerald-950/20 animate-fade-in-down sm:px-8 sm:py-8">
+            <div aria-hidden="true" class="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-emerald-400/20 blur-3xl"></div>
+            <div aria-hidden="true" class="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" style="animation-delay: -8s"></div>
             <div aria-hidden="true" class="pointer-events-none absolute inset-0 bg-grid opacity-25"></div>
 
             <div class="relative">
                 <span class="inline-flex animate-fade-in-up items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ring-1 ring-white/20">
-                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse-soft"></span>
+                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-300"></span>
                     Vue de gestion
                 </span>
                 <h1 class="mt-4 animate-fade-in-up text-3xl font-bold leading-tight sm:text-4xl" style="animation-delay: 80ms">
@@ -67,9 +67,14 @@
                 </div>
             </x-card>
         @else
-            <div class="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(20rem,1fr)]" data-reveal-group="60">
+            <div data-map-layout class="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(20rem,1fr)]" data-reveal-group="60">
                 @php
                     $defaultMode = $map['geometry']['default_mode'] ?? 'plan';
+                    $terrain = $map['geometry']['terrain'] ?? [
+                        'has_elevation' => false,
+                        'source' => null,
+                        'note' => 'Aucune source d’altitude fiable n’est configurée : aucun relief réel n’est affiché.',
+                    ];
                 @endphp
 
                 <x-card class="overflow-hidden">
@@ -77,37 +82,193 @@
                         <div>
                             <h2 class="text-lg font-semibold text-slate-800">Contours des parcelles</h2>
                             <p class="mt-0.5 text-sm text-slate-500">
-                                Contours enregistrés en GeoJSON. La 3D extrude ces mêmes formes, sans données d’altitude.
+                                Contours enregistrés en GeoJSON. La 2D les superpose à une imagerie satellite ou au
+                                plan OpenStreetMap ; la 3D extrude ces mêmes formes sur l’imagerie, sans inventer de relief.
                             </p>
                         </div>
-                        <div role="group" aria-label="Mode d’affichage du plan" class="inline-flex flex-wrap rounded-xl bg-slate-100 p-1 text-xs font-semibold">
-                            <button type="button" data-map-mode="2d" aria-pressed="{{ $defaultMode === '2d' ? 'true' : 'false' }}" class="map-mode-button {{ $defaultMode === '2d' ? 'is-active' : '' }} rounded-lg px-3 py-1.5">
-                                Contours 2D
+                        <div data-print-hide class="flex flex-wrap items-center gap-2">
+                            <div role="group" aria-label="Mode d’affichage du plan" class="inline-flex flex-wrap rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+                                <button type="button" data-map-mode="2d" aria-pressed="{{ $defaultMode === '2d' ? 'true' : 'false' }}" title="Contours réels sur imagerie satellite ou plan OpenStreetMap" class="map-mode-button map-mode-tab {{ $defaultMode === '2d' ? 'is-active' : '' }} inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5">
+                                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                        <path d="M4 6.5 9 4l6 2.5L20 4v13.5L15 20l-6-2.5L4 20V6.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                        <path d="M9 4v13.5M15 6.5V20" stroke-linecap="round" />
+                                    </svg>
+                                    Contours 2D
+                                </button>
+                                <button type="button" data-map-mode="3d" aria-pressed="false" title="Extrusion symbolique des contours, sans relief mesuré" class="map-mode-button map-mode-tab inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5">
+                                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                        <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" stroke-linecap="round" stroke-linejoin="round" />
+                                        <path d="M12 12v9M4 7.5l8 4.5 8-4.5" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                    Extrusion 3D
+                                </button>
+                                <button type="button" data-map-mode="plan" aria-pressed="{{ $defaultMode === 'plan' ? 'true' : 'false' }}" title="Plan schématique basé sur les surfaces déclarées" class="map-mode-button map-mode-tab {{ $defaultMode === 'plan' ? 'is-active' : '' }} inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5">
+                                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                        <rect x="4" y="4" width="7" height="7" rx="1" />
+                                        <rect x="13" y="4" width="7" height="7" rx="1" />
+                                        <rect x="4" y="13" width="7" height="7" rx="1" />
+                                        <rect x="13" y="13" width="7" height="7" rx="1" />
+                                    </svg>
+                                    Plan indicatif
+                                </button>
+                            </div>
+                            <button type="button" data-map-reset
+                                    class="map-mode-button rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold">
+                                Recentrer
                             </button>
-                            <button type="button" data-map-mode="3d" aria-pressed="false" class="map-mode-button rounded-lg px-3 py-1.5">
-                                Extrusion 3D
-                            </button>
-                            <button type="button" data-map-mode="plan" aria-pressed="{{ $defaultMode === 'plan' ? 'true' : 'false' }}" class="map-mode-button {{ $defaultMode === 'plan' ? 'is-active' : '' }} rounded-lg px-3 py-1.5">
-                                Plan indicatif
+                            <button type="button" data-map-print
+                                    class="map-mode-button inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold"
+                                    title="Imprimer le plan ou l’enregistrer en PDF depuis le navigateur">
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                    <path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M7 14h10v7H7v-7Z" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                Imprimer / PDF
                             </button>
                         </div>
                     </div>
+
+                    @php
+                        $modeStatusLabels = [
+                            '2d' => 'Vue 2D · contours enregistrés sur imagerie satellite ou plan',
+                            '3d' => 'Vue 3D · contours extrudés sur imagerie plaquée à plat, sans relief mesuré',
+                            'plan' => 'Plan indicatif · surfaces déclarées, sans géolocalisation',
+                        ];
+                    @endphp
+                    <p data-map-mode-status class="farm-map-mode-status mt-3" role="status" aria-live="polite">
+                        <span class="farm-map-mode-status__dot" aria-hidden="true"></span>
+                        <span data-map-mode-status-text>{{ $modeStatusLabels[$defaultMode] ?? $modeStatusLabels['plan'] }}</span>
+                    </p>
+
+                    @php
+                        $activeLayerKeys = collect($map['layers'])
+                            ->filter(fn (array $layer): bool => $layer['available'] && $layer['default'])
+                            ->pluck('key')
+                            ->all();
+                    @endphp
+                    <fieldset class="map-layer-panel mt-4" data-map-layer-panel>
+                        <legend class="sr-only">Couches d’information de la carte</legend>
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                                <p class="text-sm font-semibold text-slate-800">Couches d’information</p>
+                                <p class="mt-0.5 text-xs text-slate-500">
+                                    Activez ou masquez les données enregistrées. Chaque couche affiche sa propre légende.
+                                </p>
+                            </div>
+                            <span class="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                                {{ count($map['layers']) }} couches
+                            </span>
+                        </div>
+
+                        <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                            @foreach ($map['layers'] as $layer)
+                                @php
+                                    $key = $layer['key'];
+                                    $available = $layer['available'];
+                                    $checked = $available && $layer['default'];
+                                    $descriptionId = 'map-layer-'.$key.'-description';
+                                    $reasonId = 'map-layer-'.$key.'-reason';
+                                @endphp
+                                <div class="map-layer-option {{ $available ? '' : 'is-unavailable' }}">
+                                    <label class="map-layer-option__label">
+                                        <input type="checkbox"
+                                               id="map-layer-{{ $key }}"
+                                               data-map-layer="{{ $key }}"
+                                               @checked($checked)
+                                               @disabled(! $available)
+                                               aria-describedby="{{ $descriptionId }}{{ $available ? '' : ' '.$reasonId }}"
+                                               class="map-layer-checkbox">
+                                        <span class="map-layer-switch" aria-hidden="true"><span></span></span>
+                                        <span class="min-w-0">
+                                            <span class="flex items-center gap-1.5">
+                                                <span class="text-sm font-semibold text-slate-800">{{ $layer['label'] }}</span>
+                                                <span class="map-layer-count">{{ $layer['count'] }}</span>
+                                            </span>
+                                            <span id="{{ $descriptionId }}" class="mt-0.5 block text-[11px] leading-relaxed text-slate-500">
+                                                {{ $layer['description'] }}
+                                            </span>
+                                            @unless ($available)
+                                                <span id="{{ $reasonId }}" class="map-layer-reason">
+                                                    {{ $layer['reason'] }}
+                                                </span>
+                                            @endunless
+                                        </span>
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <div class="mt-3 grid gap-2" data-map-layer-legends>
+                            @foreach ($map['layers'] as $layer)
+                                <div data-layer-legend="{{ $layer['key'] }}"
+                                     @if (! in_array($layer['key'], $activeLayerKeys, true)) hidden @endif
+                                     class="map-layer-legend">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                        Légende · {{ $layer['label'] }}
+                                    </p>
+                                    <ul class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600">
+                                        @forelse ($layer['legend'] as $entry)
+                                            <li class="inline-flex items-center gap-1.5">
+                                                <span class="map-layer-swatch" style="--swatch: {{ $entry['color'] }}" aria-hidden="true"></span>
+                                                {{ $entry['label'] }}
+                                            </li>
+                                        @empty
+                                            <li class="text-slate-400">Aucune valeur à légender.</li>
+                                        @endforelse
+                                    </ul>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <p class="map-layer-note">
+                            Les couches indisponibles restent désactivées : aucune culture, campagne, activité, récolte,
+                            alerte, irrigation, position ou quantité attendue n’est inventée. Les états de récolte sont
+                            calculés à partir des campagnes, des récoltes planifiées et des récoltes enregistrées. Les
+                            statuts « à venir » et « en retard » sont calculés à partir des dates et statuts saisis ; les
+                            volumes, surfaces et quantités affichés sont ceux réellement enregistrés. Les quantités de
+                            récolte gardent leur unité d’origine et ne sont pas additionnées entre unités différentes.
+                            Les stocks critiques non géolocalisés restent dans la vue d’ensemble.
+                        </p>
+                        <p class="sr-only" data-map-layer-status role="status" aria-live="polite"></p>
+                    </fieldset>
 
                     <div class="mt-4 space-y-3" data-map-shell>
                         @if ($map['stats']['without_boundary'] > 0)
                             <div class="farm-map-notice">
                                 <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-white">!</span>
                                 <p>
-                                    <strong>{{ $map['stats']['without_boundary'] }}</strong> parcelle(s) sans contour enregistré.
-                                    Elles restent visibles dans le <button type="button" data-map-mode="plan" class="font-semibold underline underline-offset-2">plan indicatif</button>
-                                    et ne peuvent pas être extrudées en 3D.
+                                    <strong>{{ $map['stats']['without_boundary'] }}</strong> parcelle(s) sans contour enregistré
+                                    @if (($map['stats']['without_coordinates'] ?? 0) > 0)
+                                        (dont <strong>{{ $map['stats']['without_coordinates'] }}</strong> sans coordonnées)
+                                    @endif.
+                                    Elles restent visibles dans le <button type="button" data-map-mode="plan" class="font-semibold underline underline-offset-2">plan indicatif</button>.
+                                    Sur la carte 2D, celles qui possèdent déjà des coordonnées sont signalées par un point
+                                    « contour à dessiner » ; aucune position n’est inventée et aucune n’est extrudée en 3D.
                                 </p>
                             </div>
                         @endif
 
                         <div data-map-panel="2d" @if ($defaultMode !== '2d') hidden @endif class="relative overflow-hidden rounded-2xl border border-emerald-200/70 bg-emerald-50 p-1.5 shadow-inner">
+                            <div data-map-basemap-group data-print-hide role="group" aria-label="Fond de carte 2D" class="map-basemap-switch">
+                                <button type="button" data-map-basemap="satellite" aria-pressed="true" class="map-basemap-button is-active">
+                                    Satellite
+                                </button>
+                                <button type="button" data-map-basemap="plan" aria-pressed="false" class="map-basemap-button">
+                                    Plan
+                                </button>
+                            </div>
                             <div data-map-2d class="farm-map-canvas" role="application" aria-label="Carte 2D des contours de parcelles"></div>
-                            <span class="farm-map-caption">Fond © OpenStreetMap · contours enregistrés</span>
+                            <p data-map-tile-status hidden class="farm-map-tile-status" role="status">
+                                Fond de carte indisponible (réseau faible). Les contours enregistrés restent affichés.
+                            </p>
+                            <div data-map-load-error hidden class="farm-map-empty">
+                                <p class="text-base font-semibold text-slate-800">Carte 2D indisponible</p>
+                                <p class="mt-1 text-sm text-slate-600">La bibliothèque cartographique n’a pas pu être chargée.</p>
+                                <button type="button" data-map-mode="plan" class="mt-3 inline-flex rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800">
+                                    Utiliser le plan indicatif
+                                </button>
+                            </div>
+                            <span class="farm-map-caption">Imagerie Esri / plan OpenStreetMap · contours enregistrés</span>
                         </div>
 
                         <div data-map-panel="3d" hidden class="relative overflow-hidden rounded-2xl border border-emerald-200/70 bg-emerald-50 p-1.5 shadow-inner">
@@ -115,13 +276,26 @@
                             <div data-map-empty="3d" hidden class="farm-map-empty">
                                 <p class="text-base font-semibold text-slate-800">Aucun contour à extruder</p>
                                 <p class="mt-1 text-sm text-slate-600">Dessinez au moins un contour de parcelle pour alimenter la vue 3D.</p>
+                                <button type="button" data-map-mode="plan" class="mt-3 inline-flex rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                                    Voir le plan indicatif
+                                </button>
                                 @can('create', App\Models\ProductionUnit::class)
-                                    <a href="{{ route('production-units.create') }}" class="mt-3 inline-flex rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800">
+                                    <a href="{{ route('production-units.create') }}" class="mt-2 inline-flex rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800">
                                         Créer une parcelle
                                     </a>
                                 @endcan
                             </div>
-                            <span class="farm-map-caption">Extrusion symbolique · aucune donnée d’altitude</span>
+                            <p data-map-3d-imagery-status hidden class="farm-map-tile-status farm-map-tile-status--3d" role="status">
+                                Imagerie satellite indisponible ; le sol neutre est conservé.
+                            </p>
+                            <span class="farm-map-caption">Imagerie Esri plaquée à plat · relief non mesuré</span>
+                            <p class="farm-map-terrain-note">
+                                <strong>Relief non disponible.</strong>
+                                {{ $terrain['note'] ?? '' }}
+                                @if (! empty($terrain['source']))
+                                    Source d’altitude : {{ $terrain['source'] }}.
+                                @endif
+                            </p>
                         </div>
 
                         <div data-map-panel="plan" @if ($defaultMode !== 'plan') hidden @endif class="rounded-2xl border border-emerald-200/70 bg-emerald-50 p-1.5 shadow-inner">
@@ -143,8 +317,9 @@
                                     @endphp
                                     <button type="button"
                                             data-plot-target="plot-detail-{{ $unit->id }}"
-                                            class="farm-map-plot group absolute"
-                                            style="left: {{ $layout['left'] }}%; top: {{ $layout['top'] }}%; width: {{ $layout['width'] }}%; height: {{ $layout['height'] }}%; --plot-color: {{ $row['color'] }}; --plot-dark: {{ $row['color_dark'] }};"
+                                            data-harvest-state="{{ $row['harvest_state']['key'] }}"
+                                            class="farm-map-plot group absolute {{ $row['has_boundary'] ? '' : 'farm-map-plot--missing' }}"
+                                            style="left: {{ $layout['left'] }}%; top: {{ $layout['top'] }}%; width: {{ $layout['width'] }}%; height: {{ $layout['height'] }}%; --plot-color: {{ $row['color'] }}; --plot-dark: {{ $row['color_dark'] }}; --harvest-state-color: {{ $row['harvest_state']['color'] }};"
                                             aria-label="Afficher la parcelle {{ $unit->name }} ({{ $unit->code }})">
                                         <span class="farm-map-plot-face">
                                             <span class="relative z-10 flex h-full flex-col justify-between gap-1">
@@ -164,6 +339,10 @@
                                                             · {{ $campaign['status_label'] }}
                                                         @endif
                                                     </span>
+                                                    <span class="mt-0.5 flex min-w-0 items-center gap-1 text-[9px] font-semibold text-white/90">
+                                                        <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background-color: {{ $row['harvest_state']['color'] }}"></span>
+                                                        <span class="truncate">{{ $row['harvest_state']['label'] }}</span>
+                                                    </span>
                                                 </span>
                                             </span>
                                         </span>
@@ -171,9 +350,30 @@
                                 @endforeach
                             </div>
                         </div>
+
+                        <noscript>
+                            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                                <p class="font-semibold">Carte interactive indisponible sans JavaScript.</p>
+                                <p class="mt-1">Le contour de chaque parcelle reste consultable ci-dessous.</p>
+                                <ul class="mt-2 divide-y divide-amber-100">
+                                    @foreach ($map['units'] as $row)
+                                        <li class="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                                            <span class="min-w-0 truncate">
+                                                <span class="font-mono font-semibold">{{ $row['unit']->code }}</span>
+                                                · {{ $row['unit']->name }}
+                                            </span>
+                                            <span class="shrink-0 text-amber-800">
+                                                {{ number_format((float) $row['unit']->area_m2, 0, ',', ' ') }} m²
+                                                · {{ $row['has_boundary'] ? 'contour enregistré' : 'contour à dessiner' }}
+                                            </span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </noscript>
                     </div>
 
-                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <div data-print-hide class="mt-3 flex flex-wrap items-center gap-2">
                         <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Sélection rapide</span>
                         @foreach ($map['units'] as $row)
                             @php
@@ -181,9 +381,11 @@
                             @endphp
                             <button type="button"
                                     data-map-select="{{ $unit->id }}"
+                                    data-harvest-state="{{ $row['harvest_state']['key'] }}"
+                                    title="{{ $row['harvest_state']['label'] }}"
                                     class="map-unit-chip {{ $row['has_boundary'] ? '' : 'map-unit-chip--missing' }}"
                                     aria-pressed="false">
-                                <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: {{ $row['color'] }}"></span>
+                                <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: {{ $row['harvest_state']['color'] }}"></span>
                                 <span class="font-mono">{{ $unit->code }}</span>
                                 @if (! $row['has_boundary'])
                                     <span class="text-[10px] font-medium text-amber-700">contour à dessiner</span>
@@ -199,9 +401,21 @@
                                 {{ $entry['label'] }}
                             </span>
                         @endforeach
+                        @foreach ($map['harvest']['states'] as $state)
+                            @if ($state['count'] > 0)
+                                <span class="inline-flex items-center gap-1.5" title="{{ $state['description'] }}">
+                                    <span class="h-2.5 w-2.5 rounded-sm ring-2 ring-white" style="background-color: {{ $state['color'] }}"></span>
+                                    {{ $state['label'] }} ({{ $state['count'] }})
+                                </span>
+                            @endif
+                        @endforeach
                         <span class="inline-flex items-center gap-1.5">
                             <span class="h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"></span>
                             Alerte
+                        </span>
+                        <span class="inline-flex items-center gap-1.5">
+                            <span class="h-2.5 w-2.5 rounded-full border-2 border-dashed border-amber-600 bg-amber-100"></span>
+                            Contour à dessiner
                         </span>
                         <span class="ml-auto text-slate-400">Mise à jour : {{ $map['generated_at'] }}</span>
                     </div>
@@ -279,12 +493,29 @@
                                     {{ number_format($map['stats']['mapped_area_m2'], 0, ',', ' ') }} m²
                                 </p>
                             </div>
+                            <div class="rounded-xl bg-slate-50 px-3 py-2">
+                                <p class="font-semibold text-slate-700">Récoltes enregistrées</p>
+                                <p class="mt-0.5 text-slate-500">
+                                    {{ $map['harvest']['recorded_count'] }}
+                                    <span class="text-slate-400">· {{ $map['harvest']['planned_count'] }} planifiée(s)</span>
+                                </p>
+                            </div>
+                            <div class="rounded-xl bg-slate-50 px-3 py-2">
+                                <p class="font-semibold text-slate-700">Prochaine récolte planifiée</p>
+                                <p class="mt-0.5 truncate text-slate-500" title="{{ $map['harvest']['next_planned_label'] }}">
+                                    {{ $map['harvest']['next_planned_date'] ?? 'Aucune date' }}
+                                </p>
+                            </div>
                         </div>
 
                         <div class="mt-3 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-500">
                             Les contours affichés sont les polygones enregistrés. La vue 3D est une
-                            <strong class="font-semibold text-slate-700">extrusion symbolique</strong> de ces formes :
-                            elle n’utilise aucune donnée d’altitude et ne constitue pas un modèle topographique.
+                            <strong class="font-semibold text-slate-700">extrusion des contours</strong>, pas un
+                            modèle topographique.
+                            @if (empty($terrain['has_elevation']))
+                                <strong class="font-semibold text-slate-700">Relief non disponible :</strong>
+                                aucune source d’altitude fiable n’est configurée, donc les pentes et altitudes ne sont pas affichées.
+                            @endif
                         </div>
 
                         @php
@@ -319,6 +550,7 @@
                         @endphp
                         <article id="plot-detail-{{ $unit->id }}"
                                  data-map-detail="plot-detail-{{ $unit->id }}"
+                                 data-harvest-state="{{ $row['harvest_state']['key'] }}"
                                  class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                                  hidden>
                             <div class="flex items-start justify-between gap-3">
@@ -361,8 +593,9 @@
 
                             @if (! $row['has_boundary'])
                                 <div class="mt-3 rounded-xl border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                                    Aucun contour n’est enregistré : cette parcelle apparaît dans le plan indicatif,
-                                    mais pas dans les vues 2D et 3D.
+                                    Aucun contour n’est enregistré : cette parcelle apparaît dans le plan indicatif.
+                                    Sur la carte 2D, elle n’est affichée que si une position ponctuelle est déjà connue ;
+                                    elle n’est jamais extrudée en 3D.
                                     @can('update', $unit)
                                         <a href="{{ route('production-units.boundary.edit', $unit) }}" class="font-semibold underline underline-offset-2">
                                             Dessiner le contour
@@ -370,6 +603,74 @@
                                     @endcan
                                 </div>
                             @endif
+
+                            @php
+                                $harvestState = $row['harvest_state'];
+                            @endphp
+                            <div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3"
+                                 style="--state-color: {{ $harvestState['color'] }}">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex min-w-0 items-start gap-2">
+                                        <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style="background-color: {{ $harvestState['color'] }}"></span>
+                                        <div class="min-w-0">
+                                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">État de récolte</p>
+                                            <p class="truncate text-sm font-semibold" style="color: {{ $harvestState['color'] }}">{{ $harvestState['label'] }}</p>
+                                        </div>
+                                    </div>
+                                    <span class="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">
+                                        {{ $harvestState['harvest_count'] }} récolte(s)
+                                    </span>
+                                </div>
+                                <p class="mt-2 text-xs leading-relaxed text-slate-600">{{ $harvestState['reason'] }}</p>
+                                <dl class="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                                    <div class="rounded-lg bg-white px-2.5 py-2 ring-1 ring-slate-200">
+                                        <dt class="font-semibold text-slate-500">Dernière récolte</dt>
+                                        <dd class="mt-0.5 text-slate-700">
+                                            @if ($harvestState['last_harvested_at'])
+                                                {{ $harvestState['last_harvested_at'] }}
+                                                @if ($harvestState['last_harvest_quantity'] !== null)
+                                                    · {{ number_format($harvestState['last_harvest_quantity'], 1, ',', ' ') }} {{ $harvestState['last_harvest_unit'] }}
+                                                @endif
+                                            @else
+                                                Aucune récolte enregistrée
+                                            @endif
+                                        </dd>
+                                    </div>
+                                    <div class="rounded-lg bg-white px-2.5 py-2 ring-1 ring-slate-200">
+                                        <dt class="font-semibold text-slate-500">Prochaine récolte planifiée</dt>
+                                        <dd class="mt-0.5 text-slate-700">
+                                            @if ($harvestState['next_planned_date'])
+                                                {{ $harvestState['next_planned_date'] }}
+                                                @if ($harvestState['next_planned_campaign'])
+                                                    <span class="block truncate text-[11px] text-slate-500">{{ $harvestState['next_planned_campaign'] }}</span>
+                                                @endif
+                                            @else
+                                                Aucune date planifiée
+                                            @endif
+                                        </dd>
+                                    </div>
+                                    <div class="rounded-lg bg-white px-2.5 py-2 ring-1 ring-slate-200">
+                                        <dt class="font-semibold text-slate-500">Récoltes enregistrées</dt>
+                                        <dd class="mt-0.5 text-slate-700">{{ $harvestState['harvest_count'] }}</dd>
+                                    </div>
+                                    <div class="rounded-lg bg-white px-2.5 py-2 ring-1 ring-slate-200">
+                                        <dt class="font-semibold text-slate-500">Campagne concernée</dt>
+                                        <dd class="mt-0.5 truncate text-slate-700">
+                                            @if ($harvestState['campaign'])
+                                                <a href="{{ $harvestState['campaign']['url'] }}" class="font-semibold text-emerald-700 hover:text-emerald-800">
+                                                    {{ $harvestState['campaign']['crop'] }} · {{ $harvestState['campaign']['status_label'] }}
+                                                </a>
+                                            @else
+                                                Non renseignée
+                                            @endif
+                                        </dd>
+                                    </div>
+                                </dl>
+                                <p class="mt-2 text-[11px] leading-relaxed text-slate-500">
+                                    Aucune quantité attendue ni surface récoltée n’est déduite : seules les dates,
+                                    quantités et unités réellement enregistrées sont affichées.
+                                </p>
+                            </div>
 
                             @if ($row['alert_count'] > 0)
                                 <ul class="mt-3 space-y-1.5">
@@ -566,6 +867,266 @@
                     @endforeach
                 </aside>
             </div>
+
+            @php
+                $harvest = $map['harvest'];
+                $timelineByMonth = collect($harvest['timeline'])->groupBy('month_key');
+            @endphp
+            <section data-print-hide class="harvest-panel mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div class="harvest-panel__header border-b border-slate-100 bg-gradient-to-br from-emerald-50 via-white to-amber-50 px-4 py-5 sm:px-6">
+                    <div class="flex flex-wrap items-start justify-between gap-4">
+                        <div class="max-w-2xl">
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Suivi des récoltes</p>
+                            <h2 class="mt-1 text-xl font-semibold text-slate-800">États et frise temporelle</h2>
+                            <p class="mt-1 text-sm leading-relaxed text-slate-600">
+                                Les états sont calculés à partir des campagnes, des récoltes planifiées et des récoltes
+                                enregistrées. Une parcelle sans donnée reste « non renseignée » : aucune date ni quantité
+                                n’est inventée.
+                            </p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                            <div class="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200">
+                                <p class="font-semibold text-slate-500">Enregistrées</p>
+                                <p class="mt-0.5 text-lg font-semibold text-slate-800">{{ $harvest['recorded_count'] }}</p>
+                            </div>
+                            <div class="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200">
+                                <p class="font-semibold text-slate-500">Planifiées</p>
+                                <p class="mt-0.5 text-lg font-semibold text-slate-800">{{ $harvest['planned_count'] }}</p>
+                            </div>
+                            <div class="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200">
+                                <p class="font-semibold text-slate-500">Prochaine</p>
+                                <p class="mt-0.5 text-lg font-semibold text-slate-800">{{ $harvest['next_planned_date'] ?? '—' }}</p>
+                            </div>
+                            <div class="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200">
+                                <p class="font-semibold text-slate-500">Parcelles</p>
+                                <p class="mt-0.5 text-lg font-semibold text-slate-800">{{ $map['stats']['units'] }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex flex-wrap items-center gap-2" data-harvest-filters role="group" aria-label="Filtrer les parcelles par état de récolte">
+                        @foreach ($harvest['filters'] as $filter)
+                            <button type="button"
+                                    data-harvest-filter="{{ $filter['key'] }}"
+                                    data-harvest-states="{{ implode(',', $filter['states']) }}"
+                                    data-harvest-label="{{ $filter['label'] }}"
+                                    aria-pressed="{{ $filter['key'] === 'all' ? 'true' : 'false' }}"
+                                    class="harvest-filter-button {{ $filter['key'] === 'all' ? 'is-active' : '' }}">
+                                <span>{{ $filter['label'] }}</span>
+                                <span class="harvest-filter-count">{{ $filter['count'] }}</span>
+                            </button>
+                        @endforeach
+                        <p class="ml-auto text-[11px] text-slate-500" data-harvest-filter-status role="status" aria-live="polite">
+                            Toutes les parcelles sont affichées.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(17rem,1fr)]">
+                    <div class="min-w-0">
+                        <div class="flex items-center justify-between gap-3">
+                            <h3 class="text-sm font-semibold text-slate-800">Frise des récoltes</h3>
+                            <span class="text-[11px] text-slate-500">Aujourd’hui : {{ $harvest['today'] }}</span>
+                        </div>
+
+                        <div class="mt-3 space-y-5" data-harvest-timeline>
+                            @forelse ($timelineByMonth as $monthKey => $events)
+                                <section data-harvest-month="{{ $monthKey }}">
+                                    <h4 class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                                        {{ $events->first()['month_label'] ?? $monthKey }}
+                                    </h4>
+                                    <ol class="mt-2 space-y-1.5">
+                                        @foreach ($events as $event)
+                                            <li data-harvest-event
+                                                data-harvest-state="{{ $event['state_key'] }}"
+                                                data-harvest-timestamp="{{ $event['timestamp'] }}">
+                                                <a href="{{ $event['url'] }}"
+                                                   class="harvest-timeline-event {{ $event['is_future'] ? 'is-future' : 'is-past' }}">
+                                                    <span class="harvest-timeline-date">
+                                                        <span class="text-sm font-semibold text-slate-700">{{ $event['day_label'] }}</span>
+                                                        <span class="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold {{ $event['kind'] === 'planned' ? 'text-sky-700' : 'text-emerald-700' }}">
+                                                            <span class="h-1.5 w-1.5 rounded-full {{ $event['kind'] === 'planned' ? 'bg-sky-500' : 'bg-emerald-600' }}"></span>
+                                                            {{ $event['kind'] === 'planned' ? 'Planifiée' : 'Enregistrée' }}
+                                                        </span>
+                                                    </span>
+                                                    <span class="min-w-0 flex-1">
+                                                        <span class="block truncate text-sm font-semibold text-slate-800">{{ $event['label'] }} · {{ $event['crop'] }}</span>
+                                                        <span class="mt-0.5 block truncate text-[11px] text-slate-500">
+                                                            {{ $event['unit_code'] }} · {{ $event['unit_name'] }} · {{ $event['campaign'] }}
+                                                        </span>
+                                                    </span>
+                                                    <span class="shrink-0 text-right">
+                                                        @if ($event['kind'] === 'recorded')
+                                                            <span class="block text-xs font-semibold text-slate-800">
+                                                                {{ number_format($event['quantity'], 1, ',', ' ') }} {{ $event['unit'] }}
+                                                            </span>
+                                                        @else
+                                                            <span class="block text-[11px] font-medium text-slate-500">Quantité non renseignée</span>
+                                                        @endif
+                                                        <span class="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold ring-1 ring-slate-200" style="color: {{ $event['state_color'] }}">
+                                                            <span class="h-1.5 w-1.5 rounded-full" style="background-color: {{ $event['state_color'] }}"></span>
+                                                            {{ $event['state_label'] }}
+                                                        </span>
+                                                    </span>
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    </ol>
+                                </section>
+                            @empty
+                                <p class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-5 text-sm text-slate-500">
+                                    Aucune récolte enregistrée ni planifiée sur cette exploitation.
+                                </p>
+                            @endforelse
+                            <p data-harvest-filter-empty hidden class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-5 text-sm text-slate-500">
+                                Aucune récolte ne correspond à ce filtre.
+                            </p>
+                        </div>
+                    </div>
+
+                    <aside class="min-w-0">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                            <h3 class="text-sm font-semibold text-slate-800">Répartition des états</h3>
+                            <p class="mt-0.5 text-[11px] text-slate-500">Chaque parcelle compte une fois, selon son état actuel.</p>
+                            <ul class="mt-3 space-y-2">
+                                @foreach ($harvest['states'] as $state)
+                                    @if ($state['count'] > 0)
+                                        <li>
+                                            <div class="flex items-center justify-between gap-2 text-xs">
+                                                <span class="inline-flex min-w-0 items-center gap-1.5 font-semibold text-slate-700">
+                                                    <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: {{ $state['color'] }}"></span>
+                                                    <span class="truncate">{{ $state['label'] }}</span>
+                                                </span>
+                                                <span class="shrink-0 text-slate-500">{{ $state['count'] }} / {{ $map['stats']['units'] }}</span>
+                                            </div>
+                                            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-slate-200">
+                                                <div class="h-full rounded-full" style="width: {{ $map['stats']['units'] > 0 ? round($state['count'] / $map['stats']['units'] * 100, 1) : 0 }}%; background-color: {{ $state['color'] }}"></div>
+                                            </div>
+                                            <p class="mt-1 text-[10px] leading-relaxed text-slate-500">{{ $state['description'] }}</p>
+                                        </li>
+                                    @endif
+                                @endforeach
+                                @if (collect($harvest['states'])->every(fn (array $state): bool => $state['count'] === 0))
+                                    <li class="text-xs text-slate-500">Aucun état calculable.</li>
+                                @endif
+                            </ul>
+                        </div>
+
+                        <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900">
+                            <strong class="font-semibold">Données réelles uniquement.</strong>
+                            Une récolte planifiée n’est pas une récolte réalisée. Les quantités restent dans leur unité
+                            d’origine et ne sont jamais additionnées entre unités différentes.
+                        </div>
+                    </aside>
+                </div>
+            </section>
+
+            @php
+                $printLayers = collect($map['layers'])
+                    ->filter(fn (array $layer): bool => $layer['available']);
+            @endphp
+            <section class="print-summary" aria-label="Synthèse imprimable du plan">
+                <header class="print-summary__header">
+                    <div>
+                        <p class="print-summary__eyebrow">VolyLegume · plan de l’exploitation</p>
+                        <h2>{{ $farm->name }}</h2>
+                        <p>Document généré le {{ $map['generated_at'] }} à partir des données enregistrées.</p>
+                    </div>
+                    <dl class="print-summary__stats">
+                        <div><dt>Parcelles</dt><dd>{{ $map['stats']['units'] }}</dd></div>
+                        <div><dt>Surface</dt><dd>{{ number_format($map['stats']['area_m2'], 0, ',', ' ') }} m²</dd></div>
+                        <div><dt>Contours</dt><dd>{{ $map['stats']['with_boundary'] }} / {{ $map['stats']['units'] }}</dd></div>
+                        <div><dt>Alertes</dt><dd>{{ $map['stats']['alerts'] }}</dd></div>
+                    </dl>
+                </header>
+
+                <div class="print-summary__content">
+                    <section>
+                        <h3>Parcelles</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Code</th>
+                                    <th scope="col">Parcelle</th>
+                                    <th scope="col">Surface</th>
+                                    <th scope="col">Contour</th>
+                                    <th scope="col">Campagne principale</th>
+                                    <th scope="col">État récolte</th>
+                                    <th scope="col">Alertes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($map['units'] as $row)
+                                    @php
+                                        $printedCampaign = $row['primary_campaign'];
+                                    @endphp
+                                    <tr>
+                                        <td class="font-mono">{{ $row['unit']->code }}</td>
+                                        <td>
+                                            <strong>{{ $row['unit']->name }}</strong>
+                                            @if ($row['unit']->location)
+                                                <span class="print-summary__muted">{{ $row['unit']->location }}</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ number_format((float) $row['unit']->area_m2, 0, ',', ' ') }} m²</td>
+                                        <td>{{ $row['has_boundary'] ? 'Enregistré' : 'À dessiner' }}</td>
+                                        <td>
+                                            @if ($printedCampaign)
+                                                {{ $printedCampaign['crop'] ?? $printedCampaign['name'] }}
+                                                <span class="print-summary__muted">
+                                                    {{ $printedCampaign['name'] }} · {{ $printedCampaign['status_label'] }}
+                                                    @if ($printedCampaign['progress'] !== null)
+                                                        · {{ $printedCampaign['progress'] }} %
+                                                    @endif
+                                                </span>
+                                            @else
+                                                <span class="print-summary__muted">Aucune campagne active</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            {{ $row['harvest_state']['label'] }}
+                                            @if ($row['harvest_state']['next_planned_date'])
+                                                <span class="print-summary__muted">· {{ $row['harvest_state']['next_planned_date'] }}</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $row['alert_count'] > 0 ? $row['alert_count'] : '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <section>
+                        <h3>Couches affichées</h3>
+                        @forelse ($printLayers as $layer)
+                            <div class="print-summary__layer" data-print-layer="{{ $layer['key'] }}">
+                                <p><strong>{{ $layer['label'] }}</strong> · {{ $layer['count'] }}</p>
+                                <ul>
+                                    @forelse ($layer['legend'] as $entry)
+                                        <li>{{ $entry['label'] }}</li>
+                                    @empty
+                                        <li>Aucune valeur enregistrée.</li>
+                                    @endforelse
+                                </ul>
+                            </div>
+                        @empty
+                            <p>Aucune couche active.</p>
+                        @endforelse
+                    </section>
+                </div>
+
+                <footer class="print-summary__note">
+                    <p>
+                        Les couches ne contiennent que des données enregistrées pour l’exploitation active. Les mentions
+                        « à venir » et « en retard » sont calculées à partir des dates et statuts saisis. Les quantités de
+                        récolte conservent leur unité d’origine et ne sont pas additionnées entre unités différentes.
+                    </p>
+                    <p>
+                        La vue 3D n’est pas imprimée : elle est une extrusion symbolique des contours, sans source
+                        d’altitude fiable. Aucun relief, aucune position et aucune quantité ne sont inventés.
+                    </p>
+                </footer>
+            </section>
         @endif
     </div>
 

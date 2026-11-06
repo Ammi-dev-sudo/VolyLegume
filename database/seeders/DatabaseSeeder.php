@@ -49,6 +49,7 @@ class DatabaseSeeder extends Seeder
 
         $this->seedTestAccounts();
         $this->call(VegetableDataSeeder::class);
+        $this->call(DemoBoundarySeeder::class);
         $this->call(CropCatalogSeeder::class);
         $this->call(CropGuideSeeder::class);
         $this->call(CommercialDataSeeder::class);

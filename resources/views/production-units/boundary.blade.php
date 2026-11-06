@@ -9,7 +9,8 @@
                 <p class="font-mono text-xs font-semibold text-emerald-700">{{ $productionUnit->code }}</p>
                 <h1 class="text-xl font-semibold text-slate-800">Contour de « {{ $productionUnit->name }} »</h1>
                 <p class="mt-1 text-sm text-slate-500">
-                    Dessinez le polygone réel de la parcelle. Les points sont enregistrés en latitude / longitude (GeoJSON).
+                    Dessinez le polygone réel de la parcelle. Les points sont enregistrés en longitude / latitude,
+                    dans l’ordre attendu par GeoJSON.
                 </p>
             </div>
             <a href="{{ route('farm-map.index') }}"
@@ -28,6 +29,10 @@
                         </p>
                     </div>
                     <div class="inline-flex flex-wrap gap-1.5">
+                        <button type="button" data-boundary-fit
+                                class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                            Recentrer
+                        </button>
                         <button type="button" data-boundary-undo
                                 class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
                             Annuler le dernier point
@@ -46,7 +51,7 @@
                     </p>
                 @endif
 
-                <div class="mt-3 rounded-2xl border border-emerald-200/70 bg-emerald-50 p-1.5 shadow-inner">
+                <div class="relative mt-3 rounded-2xl border border-emerald-200/70 bg-emerald-50 p-1.5 shadow-inner">
                     <div data-boundary-map
                          class="farm-map-canvas farm-map-canvas--editor"
                          data-center-lat="{{ $center['lat'] ?? '' }}"
@@ -54,12 +59,25 @@
                          data-zoom="{{ $zoom }}"
                          role="application"
                          aria-label="Éditeur de contour de la parcelle"></div>
+                    <p data-boundary-tile-status hidden class="farm-map-tile-status" role="status">
+                        Fond de carte indisponible (réseau faible). Le dessin reste possible, mais sans repère visuel du terrain.
+                    </p>
+                    <div data-boundary-load-error hidden class="farm-map-empty">
+                        <p class="text-base font-semibold text-slate-800">Éditeur indisponible</p>
+                        <p class="mt-1 text-sm text-slate-600">
+                            La bibliothèque cartographique n’a pas pu être chargée. Le contour déjà enregistré
+                            reste conservé ; réessayez avec une connexion réseau.
+                        </p>
+                    </div>
                 </div>
 
                 <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                     <span data-boundary-status>0 sommet · contour incomplet</span>
                     <span data-boundary-measure>Surface dessinée : —</span>
                 </div>
+                <p class="mt-1 text-[11px] text-slate-400">
+                    Fond © OpenStreetMap · les tuiles nécessitent une connexion Internet.
+                </p>
             </x-card>
 
             <div class="space-y-4">
@@ -100,12 +118,15 @@
                         </div>
                     </dl>
 
-                    @if ($boundary)
-                        <label class="mt-4 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                            <input type="checkbox" name="update_area" value="1" class="mt-0.5 rounded border-slate-300">
-                            <span>Mettre à jour la surface déclarée avec la surface du contour</span>
-                        </label>
-                    @endif
+                    <label class="mt-4 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                        <input type="checkbox" name="update_area" value="1" class="mt-0.5 rounded border-slate-300">
+                        <span>
+                            Mettre à jour la surface déclarée avec la surface du contour
+                            @if (! $boundary)
+                                dessiné
+                            @endif
+                        </span>
+                    </label>
 
                     <div class="mt-4 flex flex-wrap gap-2">
                         <button type="submit"
@@ -132,6 +153,7 @@
                         <li>Zoomez et déplacez la carte jusqu’à la parcelle.</li>
                         <li>Cliquez sur chaque angle du contour, dans l’ordre.</li>
                         <li>Glissez un sommet pour corriger sa position.</li>
+                        <li>Faites un clic droit sur un sommet pour le supprimer.</li>
                         <li>Enregistrez : la surface et les vues 2D/3D sont recalculées.</li>
                     </ol>
                     <p class="mt-3 text-xs text-slate-500">
