@@ -178,7 +178,7 @@ php artisan migrate:fresh --seed
 
 ## Comptes de démonstration
 
-Mot de passe commun : **`password`** (voir `DatabaseSeeder`).
+Mot de passe commun : **`DEMO_PASSWORD`** (`password` par défaut en local, à définir en production). Le compte `admin@volylegume.mg` utilise `ADMIN_PASSWORD` lorsque la commande `app:create-admin-user` est exécutée.
 
 | Compte | Rôle | Exploitation |
 | --- | --- | --- |

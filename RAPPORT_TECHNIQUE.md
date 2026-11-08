@@ -741,7 +741,7 @@ Le seeder crée deux exploitations (Ferme Ambohipo et Exploitation Itasy), des p
 | `responsable.itasy@volylegume.mg` | Responsable | Itasy |
 | `agent+analavory@volylegume.mg` | Agent | Itasy |
 
-Mot de passe commun : `password`.
+Mot de passe commun : `DEMO_PASSWORD` (`password` par défaut en local, à définir en production).
 
 ## 10.4 File, cache et sessions
 
