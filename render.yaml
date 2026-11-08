@@ -1,0 +1,59 @@
+services:
+  - type: web
+    name: volylegume
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /up
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        generateValue: true
+      - key: APP_TIMEZONE
+        value: Indian/Antananarivo
+      - key: APP_LOCALE
+        value: fr
+      - key: APP_FALLBACK_LOCALE
+        value: fr
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: warning
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        sync: false
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: true
+      - key: SESSION_SAME_SITE
+        value: lax
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: HASH_DRIVER
+        value: argon2id
+      - key: MAIL_MAILER
+        value: log
+      - key: FILESYSTEM_DISK
+        value: local
+      - key: SEED_DATABASE
+        value: true
+      - key: DEMO_PASSWORD
+        sync: false
+      - key: ADMIN_EMAIL
+        value: admin@volylegume.mg
+      - key: ADMIN_NAME
+        value: Administrateur VolyLegume
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: HEALTH_TOKEN
+        generateValue: true

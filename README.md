@@ -41,7 +41,7 @@ Application web de gestion d'exploitations maraîchères, projet fil rouge du BU
 | File d'attente / cache | `database` (tables `jobs`, `cache`) |
 | Front-end | Blade + Tailwind (Vite) |
 | Tests | PHPUnit, base `sqlite :memory:` |
-| Locale / fuseau | `fr_FR` / `Africa/Antananarivo` |
+| Locale / fuseau | `fr_FR` / `Indian/Antananarivo` |
 
 ## Prérequis
 

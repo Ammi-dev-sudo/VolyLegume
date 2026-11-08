@@ -47,7 +47,7 @@ Le projet VolyLegume s'inscrit dans le cadre d'un projet fil rouge académique. 
 
 L'application vise à fournir un outil simple, cohérent et traçable, utilisable par plusieurs personnes au sein d'une même exploitation. Elle doit également garantir qu'une exploitation ne puisse jamais accéder aux données d'une autre, même en manipulant les URL ou les identifiants.
 
-Le contexte est celui de Madagascar, avec une devise unique en ariary (MGA), une localisation française et un fuseau horaire `Africa/Antananarivo`. Les données de démonstration sont fictives et ne constituent en aucun cas des prescriptions agronomiques.
+Le contexte est celui de Madagascar, avec une devise unique en ariary (MGA), une localisation française et un fuseau horaire `Indian/Antananarivo`. Les données de démonstration sont fictives et ne constituent en aucun cas des prescriptions agronomiques.
 
 ## 1.2 Objectifs
 

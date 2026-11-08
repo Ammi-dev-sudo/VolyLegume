@@ -65,12 +65,12 @@ class DatabaseSeeder extends Seeder
     {
         $admin = User::updateOrCreate(
             ['email' => 'admin@volylegume.mg'],
-            ['name' => 'Rasoa Administratrice', 'password' => Hash::make('password'), 'is_active' => true, 'is_platform_admin' => true],
+            ['name' => 'Rasoa Administratrice', 'password' => Hash::make($this->demoPassword()), 'is_active' => true, 'is_platform_admin' => true],
         );
 
         $technician = User::updateOrCreate(
             ['email' => 'technicien@volylegume.mg'],
-            ['name' => 'Technicien Test', 'password' => Hash::make('password'), 'is_active' => true],
+            ['name' => 'Technicien Test', 'password' => Hash::make($this->demoPassword()), 'is_active' => true],
         );
 
         $farmIds = Farm::query()->orderBy('id')->pluck('id');
@@ -90,21 +90,34 @@ class DatabaseSeeder extends Seeder
         }
     }
 
+    /**
+     * Mot de passe commun aux comptes de démonstration.
+     *
+     * La valeur est fournie par l'environnement en production afin de ne pas
+     * publier de comptes avec le mot de passe par défaut.
+     */
+    private function demoPassword(): string
+    {
+        return (string) env('DEMO_PASSWORD', 'password');
+    }
+
     private function seedFarm(string $name, string $location, string $managerEmail, bool $withOperations): void
     {
-        $responsable = User::factory()->create([
+        $responsable = User::create([
             'name' => $managerEmail === 'responsable@volylegume.mg' ? 'Rakoto Responsable' : 'Rasoa Itasy',
             'email' => $managerEmail,
-            'password' => Hash::make('password'),
+            'email_verified_at' => now(),
+            'password' => Hash::make($this->demoPassword()),
             'is_active' => true,
         ]);
 
         $slug = strtolower(str_replace(' ', '', explode(',', $location)[0]));
 
-        $agent = User::factory()->create([
+        $agent = User::create([
             'name' => 'Jean Agent',
             'email' => 'agent+'.$slug.'@volylegume.mg',
-            'password' => Hash::make('password'),
+            'email_verified_at' => now(),
+            'password' => Hash::make($this->demoPassword()),
             'is_active' => true,
         ]);
 
