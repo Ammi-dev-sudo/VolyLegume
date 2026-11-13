@@ -3,7 +3,7 @@
 @section('title', 'Connexion')
 
 @section('content')
-    <form method="POST" action="{{ route('login') }}" class="space-y-4">
+    <form method="POST" action="{{ route('login') }}" class="space-y-4" data-submit-loading>
         @csrf
 
         <div class="animate-fade-in-up" style="animation-delay: 120ms">
@@ -16,9 +16,14 @@
                     </svg>
                 </span>
                 <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus
+                       autocomplete="email" inputmode="email"
                        placeholder="vous@exemple.mg"
-                       class="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-3 transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none">
+                       @error('email') aria-invalid="true" aria-describedby="email-error" @enderror
+                       class="w-full rounded-xl border py-2.5 pl-10 pr-3 transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none @error('email') border-red-400 @else border-slate-300 @enderror">
             </div>
+            @error('email')
+                <p id="email-error" class="form-error">{{ $message }}</p>
+            @enderror
         </div>
 
         <div class="animate-fade-in-up" style="animation-delay: 180ms">
@@ -31,8 +36,10 @@
                     </svg>
                 </span>
                 <input id="password" name="password" type="password" required
+                       autocomplete="current-password"
                        placeholder="••••••••"
-                       class="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-12 transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none">
+                       @error('password') aria-invalid="true" aria-describedby="password-error" @enderror
+                       class="w-full rounded-xl border py-2.5 pl-10 pr-12 transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none @error('password') border-red-400 @else border-slate-300 @enderror">
                 <button type="button" data-toggle-password="password"
                         class="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 transition hover:text-emerald-700"
                         aria-label="Afficher ou masquer le mot de passe">
@@ -42,6 +49,9 @@
                     </svg>
                 </button>
             </div>
+            @error('password')
+                <p id="password-error" class="form-error">{{ $message }}</p>
+            @enderror
         </div>
 
         <label class="flex animate-fade-in-up items-center gap-2 text-sm text-slate-600" style="animation-delay: 240ms">
@@ -49,8 +59,8 @@
             Se souvenir de moi
         </label>
 
-        <button type="submit"
-                class="btn-shine w-full animate-fade-in-up rounded-xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-700 bg-[length:200%_100%] px-4 py-2.5 font-semibold text-white shadow-lg shadow-emerald-700/20 transition hover:-translate-y-0.5 hover:bg-right hover:shadow-xl active:translate-y-0 active:scale-[0.99]"
+        <button type="submit" data-loading-label="Connexion…"
+                class="btn-shine w-full animate-fade-in-up rounded-xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-700 bg-[length:200%_100%] px-4 py-2.5 font-semibold text-white shadow-lg shadow-emerald-700/20 transition hover:-translate-y-0.5 hover:bg-right hover:shadow-xl active:translate-y-0 active:scale-[0.99] disabled:cursor-wait disabled:opacity-80"
                 style="animation-delay: 300ms">
             Se connecter
         </button>

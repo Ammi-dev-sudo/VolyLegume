@@ -12,12 +12,12 @@ class ExpensePolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->isMember();
+        return $this->canManageFinances();
     }
 
     public function view(User $user, Expense $expense): bool
     {
-        return $this->isMember() && $this->belongsToCurrentFarm($expense);
+        return $this->canManageFinances() && $this->belongsToCurrentFarm($expense);
     }
 
     public function create(User $user): bool

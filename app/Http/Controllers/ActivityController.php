@@ -10,6 +10,7 @@ use App\Models\Activity;
 use App\Models\Campaign;
 use App\Models\ProductionUnit;
 use App\Models\User;
+use App\Support\DashboardCache;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -109,6 +110,8 @@ class ActivityController extends Controller
                 ->firstOrFail();
         }
 
+        DashboardCache::forget($this->farm());
+
         return redirect()->route('activities.show', $activity)->with('status', 'Activité enregistrée.');
     }
 
@@ -148,6 +151,8 @@ class ActivityController extends Controller
 
         $activity->update($attributes);
 
+        DashboardCache::forget($this->farm());
+
         return redirect()->route('activities.show', $activity)->with('status', 'Activité mise à jour.');
     }
 
@@ -162,6 +167,8 @@ class ActivityController extends Controller
         }
 
         $activity->delete();
+
+        DashboardCache::forget($this->farm());
 
         return redirect()->route('activities.index')->with('status', 'Activité supprimée.');
     }
@@ -185,6 +192,8 @@ class ActivityController extends Controller
             'performed_by' => $request->user()->id,
             'description' => $validated['notes'] ?? $activity->description,
         ]);
+
+        DashboardCache::forget($this->farm());
 
         return redirect()->route('activities.show', $activity)->with('status', 'Activité marquée comme réalisée.');
     }

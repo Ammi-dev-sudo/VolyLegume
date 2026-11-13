@@ -3,17 +3,25 @@
 namespace App\Providers;
 
 use App\Enums\FarmRole;
+use App\Models\CampaignStageEvent;
+use App\Models\CropIssue;
+use App\Models\CropIssuePhoto;
 use App\Models\IrrigationEvent;
 use App\Models\PhytosanitaryTreatment;
 use App\Models\ProduceLot;
 use App\Models\ProductionUnit;
 use App\Models\ProductionUnitPhoto;
+use App\Models\ProductionUnitZone;
 use App\Models\User;
 use App\Notifications\Channels\FarmDatabaseChannel;
+use App\Policies\CampaignStageEventPolicy;
+use App\Policies\CropIssuePhotoPolicy;
+use App\Policies\CropIssuePolicy;
 use App\Policies\IrrigationEventPolicy;
 use App\Policies\ProduceLotPolicy;
 use App\Policies\ProductionUnitPhotoPolicy;
 use App\Policies\ProductionUnitPolicy;
+use App\Policies\ProductionUnitZonePolicy;
 use App\Policies\TreatmentPolicy;
 use App\Support\FarmContext;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -45,6 +53,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(IrrigationEvent::class, IrrigationEventPolicy::class);
         Gate::policy(ProductionUnitPhoto::class, ProductionUnitPhotoPolicy::class);
         Gate::policy(PhytosanitaryTreatment::class, TreatmentPolicy::class);
+        Gate::policy(CropIssue::class, CropIssuePolicy::class);
+        Gate::policy(CropIssuePhoto::class, CropIssuePhotoPolicy::class);
+        Gate::policy(ProductionUnitZone::class, ProductionUnitZonePolicy::class);
+        Gate::policy(CampaignStageEvent::class, CampaignStageEventPolicy::class);
 
         Notification::resolved(fn (ChannelManager $service) => $service->extend(
             'farm',

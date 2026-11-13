@@ -45,14 +45,34 @@ services:
         value: log
       - key: FILESYSTEM_DISK
         value: local
+      # Photos : basculer sur « s3 » et renseigner les variables AWS_* dans le
+      # tableau de bord Render pour un stockage durable des images.
+      - key: MEDIA_DISK
+        value: public
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_DEFAULT_REGION
+        value: eu-west-3
+      - key: AWS_BUCKET
+        sync: false
+      - key: AWS_URL
+        sync: false
+      - key: AWS_ENDPOINT
+        sync: false
       - key: SEED_DATABASE
         value: true
+      # Mot de passe des comptes de démonstration. À remplacer pour un
+      # déploiement réel exposé publiquement.
       - key: DEMO_PASSWORD
-        sync: false
+        value: password
       - key: ADMIN_EMAIL
         value: admin@volylegume.mg
       - key: ADMIN_NAME
         value: Administrateur VolyLegume
+      # Optionnel : s'il est absent, le mot de passe admin reprend
+      # DEMO_PASSWORD. Le compte est créé au démarrage du conteneur.
       - key: ADMIN_PASSWORD
         sync: false
       - key: HEALTH_TOKEN

@@ -38,6 +38,33 @@ class CalendarTest extends TestCase
             ->assertSee('Activités planifiées');
     }
 
+    public function test_l_agenda_propose_les_vues_hebdomadaire_et_journaliere(): void
+    {
+        $farm = $this->createFarm();
+        $this->actingAsFarmMember($farm, FarmRole::Responsable);
+
+        $campaign = Campaign::factory()->create(['farm_id' => $farm->id]);
+
+        Activity::factory()->create([
+            'farm_id' => $farm->id,
+            'campaign_id' => $campaign->id,
+            'planned_date' => now()->toDateString(),
+            'title' => 'Récolte du jour',
+        ]);
+
+        $this->get(route('calendar.index', ['view' => 'week', 'date' => now()->toDateString()]))
+            ->assertOk()
+            ->assertSee('Vue hebdomadaire')
+            ->assertSee('Récolte du jour')
+            ->assertSee('Semaine du');
+
+        $this->get(route('calendar.index', ['view' => 'day', 'date' => now()->toDateString()]))
+            ->assertOk()
+            ->assertSee('Vue journalière')
+            ->assertSee('Récolte du jour')
+            ->assertSee('Journée');
+    }
+
     public function test_le_filtre_par_categorie_masque_les_autres_evenements(): void
     {
         $farm = $this->createFarm();

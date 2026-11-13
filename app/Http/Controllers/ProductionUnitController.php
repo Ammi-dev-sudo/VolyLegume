@@ -2,15 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CampaignStatus;
 use App\Enums\ProductionUnitStatus;
 use App\Http\Controllers\Concerns\UsesFarmContext;
+use App\Models\Activity;
+use App\Models\CropIssue;
+use App\Models\Harvest;
 use App\Models\ProductionUnit;
 use App\Rules\ValidParcelBoundary;
+use App\Services\PhotoStorage;
 use App\Support\ParcelBoundary;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -38,7 +42,7 @@ class ProductionUnitController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, PhotoStorage $photos): RedirectResponse
     {
         Gate::authorize('create', ProductionUnit::class);
 
@@ -57,7 +61,7 @@ class ProductionUnitController extends Controller
 
         $photoPath = null;
         if ($request->hasFile('photo')) {
-            $photoPath = $request->file('photo')->store('production-units', 'public');
+            $photoPath = $photos->store($request->file('photo'), 'production-units');
         }
 
         ProductionUnit::create($validated + [
@@ -70,6 +74,74 @@ class ProductionUnitController extends Controller
             ->with('status', 'Parcelle créée.');
     }
 
+    public function show(ProductionUnit $productionUnit): View
+    {
+        Gate::authorize('view', $productionUnit);
+
+        $campaigns = $productionUnit->campaigns()
+            ->with('crop')
+            ->orderByDesc('start_date')
+            ->get();
+
+        $campaignIds = $campaigns->pluck('id')->all();
+
+        $activities = Activity::query()
+            ->forFarm($this->farmId())
+            ->whereIn('campaign_id', $campaignIds)
+            ->with('campaign:id,name')
+            ->orderByDesc('planned_date')
+            ->limit(12)
+            ->get();
+
+        $harvests = Harvest::query()
+            ->forFarm($this->farmId())
+            ->whereIn('campaign_id', $campaignIds)
+            ->with('campaign:id,name')
+            ->orderByDesc('harvested_at')
+            ->limit(12)
+            ->get();
+
+        $irrigations = $productionUnit->irrigationEvents()
+            ->with('campaign:id,name')
+            ->orderByDesc('irrigated_at')
+            ->limit(12)
+            ->get();
+
+        $zones = $productionUnit->zones()->withCount('campaigns')->get();
+
+        $issues = CropIssue::query()
+            ->forFarm($this->farmId())
+            ->where('production_unit_id', $productionUnit->id)
+            ->with(['campaign:id,name', 'reportedBy:id,name'])
+            ->orderByRaw("CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'moderate' THEN 2 ELSE 3 END")
+            ->orderByDesc('observed_at')
+            ->limit(10)
+            ->get();
+
+        $stats = [
+            'campaigns' => $campaigns->count(),
+            'active_campaigns' => $campaigns->filter(
+                fn ($campaign): bool => in_array($campaign->status, [CampaignStatus::Planned, CampaignStatus::Ongoing], true),
+            )->count(),
+            'harvest_quantity' => (float) Harvest::query()
+                ->forFarm($this->farmId())
+                ->whereIn('campaign_id', $campaignIds)
+                ->sum('quantity'),
+            'irrigation_volume' => (float) $productionUnit->irrigationEvents()->sum('volume_m3'),
+        ];
+
+        return view('production-units.show', compact(
+            'productionUnit',
+            'campaigns',
+            'activities',
+            'harvests',
+            'irrigations',
+            'zones',
+            'issues',
+            'stats',
+        ));
+    }
+
     public function edit(ProductionUnit $productionUnit): View
     {
         Gate::authorize('update', $productionUnit);
@@ -77,7 +149,7 @@ class ProductionUnitController extends Controller
         return view('production-units.edit', compact('productionUnit'));
     }
 
-    public function update(Request $request, ProductionUnit $productionUnit): RedirectResponse
+    public function update(Request $request, ProductionUnit $productionUnit, PhotoStorage $photos): RedirectResponse
     {
         Gate::authorize('update', $productionUnit);
 
@@ -96,17 +168,13 @@ class ProductionUnitController extends Controller
         ]);
 
         if ($request->boolean('remove_photo') && $productionUnit->photo_path) {
-            if (Storage::disk('public')->exists($productionUnit->photo_path)) {
-                Storage::disk('public')->delete($productionUnit->photo_path);
-            }
+            $photos->delete($productionUnit->photo_path);
             $validated['photo_path'] = null;
         }
 
         if ($request->hasFile('photo')) {
-            if ($productionUnit->photo_path && Storage::disk('public')->exists($productionUnit->photo_path)) {
-                Storage::disk('public')->delete($productionUnit->photo_path);
-            }
-            $validated['photo_path'] = $request->file('photo')->store('production-units', 'public');
+            $photos->delete($productionUnit->photo_path);
+            $validated['photo_path'] = $photos->store($request->file('photo'), 'production-units');
         }
 
         unset($validated['photo'], $validated['remove_photo']);

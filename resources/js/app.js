@@ -447,6 +447,90 @@ function initPasswordToggles() {
 }
 
 /**
+ * Désactive le bouton et affiche un indicateur pendant l'envoi d'un formulaire.
+ */
+function initSubmitLoading() {
+    document.querySelectorAll('form[data-submit-loading]').forEach((form) => {
+        form.addEventListener('submit', () => {
+            if (!form.checkValidity()) {
+                return;
+            }
+
+            const button = form.querySelector('[type="submit"]');
+
+            if (!button || button.dataset.loading === 'true') {
+                return;
+            }
+
+            button.dataset.loading = 'true';
+            button.disabled = true;
+            button.classList.add('inline-flex', 'items-center', 'justify-center', 'gap-2');
+            button.dataset.originalContent = button.innerHTML;
+
+            const spinner = document.createElement('span');
+            spinner.className = 'btn-spinner';
+            spinner.setAttribute('aria-hidden', 'true');
+
+            const label = document.createElement('span');
+            label.textContent = button.dataset.loadingLabel || 'Traitement…';
+
+            button.replaceChildren(spinner, label);
+        });
+    });
+}
+
+/**
+ * Indicateur de robustesse du mot de passe (inscription).
+ */
+function initPasswordStrength() {
+    document.querySelectorAll('[data-password-strength]').forEach((meter) => {
+        const input = document.getElementById(meter.dataset.passwordStrength);
+        const fill = meter.querySelector('[data-password-strength-fill]');
+        const label = meter.querySelector('[data-password-strength-label]');
+
+        if (!input || !fill || !label) {
+            return;
+        }
+
+        const levels = [
+            ['Très faible', 25, 'var(--danger)'],
+            ['Faible', 45, 'var(--warning)'],
+            ['Moyen', 65, 'var(--gold)'],
+            ['Bon', 85, 'var(--info)'],
+            ['Excellent', 100, 'var(--accent)'],
+        ];
+
+        const update = () => {
+            const value = input.value;
+
+            if (value === '') {
+                fill.style.width = '0%';
+                label.textContent = 'Force du mot de passe';
+
+                return;
+            }
+
+            let score = 0;
+
+            if (value.length >= 8) score += 1;
+            if (value.length >= 12) score += 1;
+            if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score += 1;
+            if (/\d/.test(value)) score += 1;
+            if (/[^A-Za-z0-9]/.test(value)) score += 1;
+
+            const [text, width, color] = levels[Math.min(4, score)];
+
+            fill.style.width = `${width}%`;
+            fill.style.backgroundColor = color;
+            label.textContent = text;
+        };
+
+        input.addEventListener('input', update);
+        update();
+    });
+}
+
+/**
  * Petite onde au clic sur les boutons.
  */
 function initButtonFeedback() {
@@ -2767,6 +2851,8 @@ function init() {
     initFarmMap();
     initBoundaryEditor();
     initPasswordToggles();
+    initSubmitLoading();
+    initPasswordStrength();
     initButtonFeedback();
 }
 

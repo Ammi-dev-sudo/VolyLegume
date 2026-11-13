@@ -34,7 +34,7 @@ Application web de gestion d'exploitations maraîchères, projet fil rouge du BU
 
 | Élément | Version retenue |
 | --- | --- |
-| PHP | 8.3+ (développé sous 8.5) |
+| PHP | 8.4+ (développé sous 8.5) |
 | Laravel | 13.x (`laravel/framework ^13.17`) |
 | Sanctum | `^4.3` |
 | Base de données | PostgreSQL 18 (via Docker sur le port **5433**) |
@@ -45,7 +45,7 @@ Application web de gestion d'exploitations maraîchères, projet fil rouge du BU
 
 ## Prérequis
 
-- PHP 8.3+ avec les extensions `pdo_pgsql`, `gd` (rendu des QR codes), `zip` (sauvegardes) et, pour les tests, `pdo_sqlite`
+- PHP 8.4+ avec les extensions `pdo_pgsql`, `gd` (rendu des QR codes), `zip` (sauvegardes) et, pour les tests, `pdo_sqlite`
 - Composer, Node.js 20+, Docker (ou un PostgreSQL local)
 - Pour les sauvegardes PostgreSQL : `pg_dump` et `pg_restore` en version 18
 

@@ -17,6 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Disque des photographies agricoles
+    |--------------------------------------------------------------------------
+    |
+    | Les photos peuvent être conservées sur le disque public local ou sur un
+    | stockage objet S3. En production Render, renseignez MEDIA_DISK=s3 et les
+    | variables AWS_* pour éviter de perdre les images au redéploiement.
+    |
+    */
+
+    'media_disk' => env('MEDIA_DISK', 'public'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |
@@ -56,6 +69,7 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'visibility' => 'public',
             'throw' => false,
             'report' => false,
         ],

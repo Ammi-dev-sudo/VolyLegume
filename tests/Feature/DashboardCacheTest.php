@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\InputCategory;
+use App\Models\Campaign;
 use App\Models\Input;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -42,5 +43,26 @@ class DashboardCacheTest extends TestCase
         // Second appel : les agrégats proviennent du cache, ils ne doivent pas
         // être désérialisés en objets incomplets.
         $this->get(route('dashboard'))->assertOk()->assertSee('Fongicide cuivre');
+    }
+
+    public function test_une_activite_creee_invalide_le_cache_du_tableau_de_bord(): void
+    {
+        $farm = $this->createFarm();
+        $user = $this->actingAsFarmMember($farm);
+
+        $campaign = Campaign::factory()->create(['farm_id' => $farm->id]);
+
+        $this->get(route('dashboard'))->assertOk()->assertDontSee('Désherbage tardif');
+
+        $this->post(route('activities.store'), [
+            'campaign_id' => $campaign->id,
+            'type' => 'weeding',
+            'title' => 'Désherbage tardif',
+            'planned_date' => now()->toDateString(),
+            'status' => 'planned',
+            'assigned_to' => $user->id,
+        ])->assertRedirect();
+
+        $this->get(route('dashboard'))->assertOk()->assertSee('Désherbage tardif');
     }
 }

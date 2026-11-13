@@ -90,6 +90,7 @@ class TreatmentService
             return $lockedCampaign->treatments()->create([
                 'farm_id' => $lockedCampaign->farm_id,
                 'input_id' => $lockedInput->id,
+                'crop_issue_id' => $data['crop_issue_id'] ?? null,
                 'activity_id' => $activity->id,
                 'stock_movement_id' => $movement->id,
                 'applied_at' => $appliedAt,
@@ -100,6 +101,7 @@ class TreatmentService
                 'minimum_harvest_at' => $minimumHarvestAt,
                 'applied_by' => $actor->id,
                 'notes' => $data['notes'] ?? null,
+                'result_observed' => $data['result_observed'] ?? null,
             ]);
         });
 

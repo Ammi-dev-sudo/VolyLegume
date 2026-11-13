@@ -20,6 +20,11 @@
                                 :options="$campaigns->mapWithKeys(fn ($campaign) => [$campaign->id => $campaign->name])"
                                 placeholder="— Choisir —" />
 
+                <x-select-field name="crop_issue_id" label="Problème agricole associé" placeholder="— Aucun —"
+                                :value="old('crop_issue_id', $selectedIssue)"
+                                :options="$issues->mapWithKeys(fn ($issue) => [$issue->id => $issue->reference . ' — ' . $issue->title])"
+                                hint="Rattache l’intervention au suivi d’un problème." />
+
                 <x-select-field name="input_id" label="Produit phytosanitaire" required
                                 :value="old('input_id')"
                                 :options="$phiInputs->mapWithKeys(fn ($input) => [$input->id => $input->name . ' (' . number_format((float) $input->quantity, 3, ',', ' ') . ' ' . $input->base_unit->value . ')'])"
@@ -46,6 +51,10 @@
                          placeholder="Notice, INRA…" />
 
                 <x-textarea-field name="notes" label="Observations" rows="3" value="{{ old('notes') }}" />
+
+                <x-textarea-field name="result_observed" label="Résultat observé après traitement" rows="2"
+                                  value="{{ old('result_observed') }}"
+                                  placeholder="Évolution constatée, à confirmer par une observation de terrain." />
 
                 <div class="flex gap-3 pt-2">
                     <button type="submit"

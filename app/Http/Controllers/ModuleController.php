@@ -40,6 +40,11 @@ class ModuleController extends Controller
                         'description' => 'Comparez rendement, dépenses, recettes et eau par culture et par parcelle.',
                         'route' => 'profitability.index',
                     ],
+                    [
+                        'title' => 'Rapports',
+                        'description' => 'Générez une synthèse PDF ou Excel des campagnes, problèmes et finances.',
+                        'route' => 'reports.index',
+                    ],
                 ],
             ],
             [
@@ -60,6 +65,11 @@ class ModuleController extends Controller
                         'title' => 'Campagnes',
                         'description' => 'Suivez les campagnes, leurs calendriers et leurs rendements.',
                         'route' => 'campaigns.index',
+                    ],
+                    [
+                        'title' => 'Problèmes agricoles',
+                        'description' => 'Signalez maladies, ravageurs et stress, puis suivez les interventions.',
+                        'route' => 'issues.index',
                     ],
                     [
                         'title' => 'Activités',
@@ -146,6 +156,21 @@ class ModuleController extends Controller
                 ],
             ],
         ];
+
+        if (! Gate::allows('manage-finances', $farm)) {
+            $restricted = ['profitability.index', 'expenses.index', 'revenues.index'];
+
+            foreach ($groups as &$group) {
+                $group['items'] = array_values(array_filter(
+                    $group['items'],
+                    fn (array $item): bool => ! in_array($item['route'], $restricted, true),
+                ));
+            }
+            unset($group);
+
+            $groups[2]['title'] = 'Commercial';
+            $groups[2]['description'] = 'Du produit récolté jusqu’à la vente et à la traçabilité.';
+        }
 
         if (Gate::allows('manage-team', $farm)) {
             $groups[3]['items'][] = [

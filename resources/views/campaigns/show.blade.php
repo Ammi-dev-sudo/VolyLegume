@@ -28,12 +28,100 @@
                class="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50">Traitement</a>
             <a href="{{ route('harvests.create', ['campaign_id' => $campaign->id]) }}"
                class="rounded bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800">Récolte</a>
+            <a href="{{ route('issues.create', ['production_unit_id' => $campaign->production_unit_id, 'campaign_id' => $campaign->id]) }}"
+               class="rounded border border-amber-300 px-3 py-1.5 text-amber-800 hover:bg-amber-50">Signaler un problème</a>
+            <a href="{{ route('campaigns.photos.index', $campaign) }}"
+               class="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50">Photos ({{ $photoCount }})</a>
+            <a href="{{ route('campaigns.photos.compare', $campaign) }}"
+               class="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50">Avant / après</a>
         </div>
     </div>
 
     @php
         $bound = $latestHarvestBound ? \Illuminate\Support\Carbon::parse($latestHarvestBound) : null;
+        $stageStyles = [
+            'amber' => 'bg-amber-100 text-amber-800 border-amber-300',
+            'lime' => 'bg-lime-100 text-lime-800 border-lime-300',
+            'emerald' => 'bg-emerald-100 text-emerald-800 border-emerald-300',
+            'teal' => 'bg-teal-100 text-teal-800 border-teal-300',
+            'sky' => 'bg-sky-100 text-sky-800 border-sky-300',
+            'violet' => 'bg-violet-100 text-violet-800 border-violet-300',
+            'orange' => 'bg-orange-100 text-orange-800 border-orange-300',
+            'slate' => 'bg-slate-100 text-slate-700 border-slate-300',
+        ];
     @endphp
+
+    <x-card class="mb-6" title="Cycle cultural"
+            subtitle="La progression est calculée uniquement à partir des étapes réellement enregistrées.">
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="min-w-[13rem] flex-1">
+                <div class="flex items-end justify-between gap-3">
+                    <div>
+                        <p class="text-xs uppercase text-slate-500">Étape actuelle</p>
+                        <p class="text-lg font-semibold text-slate-800">{{ $progress['current']?->label() ?? 'Non renseignée' }}</p>
+                    </div>
+                    <p class="text-2xl font-bold text-emerald-700">{{ $progress['progress'] }} %</p>
+                </div>
+                <div class="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                    <div class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-600" style="width: {{ $progress['progress'] }}%"></div>
+                </div>
+                <p class="mt-1 text-xs text-slate-500">
+                    {{ $progress['completed'] }} / {{ $progress['total'] }} étape(s) enregistrée(s)
+                    @if ($progress['latest_at']) · dernière mise à jour {{ $progress['latest_at']->format('d/m/Y') }} @endif
+                </p>
+            </div>
+        </div>
+
+        <ol class="mt-4 grid gap-2 sm:grid-cols-3">
+            @foreach ($progress['timeline'] as $step)
+                <li class="rounded-lg border px-3 py-2 text-xs {{ $step['recorded'] ? ($stageStyles[$step['stage']->color()] ?? 'bg-emerald-50 text-emerald-800 border-emerald-200') : 'border-slate-200 bg-slate-50 text-slate-500' }}">
+                    <span class="font-semibold">{{ $step['stage']->label() }}</span>
+                    @if ($step['recorded'])
+                        <span class="block">{{ $step['event']->recorded_at->format('d/m/Y') }}</span>
+                    @else
+                        <span class="block">Non enregistrée</span>
+                    @endif
+                </li>
+            @endforeach
+        </ol>
+
+        @can('create', \App\Models\CampaignStageEvent::class)
+            <form method="POST" action="{{ route('campaigns.stages.store', $campaign) }}" enctype="multipart/form-data"
+                  class="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+                @csrf
+                <div>
+                    <label for="stage" class="block text-sm font-medium text-slate-700">Étape à enregistrer</label>
+                    <select id="stage" name="stage" required class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm">
+                        @foreach (\App\Enums\CropStage::ordered() as $stage)
+                            <option value="{{ $stage->value }}">{{ $stage->label() }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="recorded_at" class="block text-sm font-medium text-slate-700">Date réelle</label>
+                    <input id="recorded_at" name="recorded_at" type="date" required value="{{ now()->toDateString() }}"
+                           class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm">
+                </div>
+                <div class="sm:col-span-2">
+                    <label for="stage_notes" class="block text-sm font-medium text-slate-700">Observations</label>
+                    <textarea id="stage_notes" name="notes" rows="2" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"></textarea>
+                </div>
+                <div>
+                    <label for="stage_photo" class="block text-sm font-medium text-slate-700">Photo de l’étape (facultatif)</label>
+                    <input id="stage_photo" name="photo" type="file" accept="image/*" class="mt-1 w-full text-sm">
+                </div>
+                <div>
+                    <label for="stage_caption" class="block text-sm font-medium text-slate-700">Légende de la photo</label>
+                    <input id="stage_caption" name="caption" maxlength="255" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm">
+                </div>
+                <div class="sm:col-span-2">
+                    <button type="submit" class="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
+                        Enregistrer l’étape
+                    </button>
+                </div>
+            </form>
+        @endcan
+    </x-card>
     <div class="mb-4 rounded border px-4 py-3 text-sm
         {{ $bound ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-emerald-300 bg-emerald-50 text-emerald-900' }}">
         @if ($bound)
@@ -221,6 +309,28 @@
                             @endforeach
                         </tbody>
                     </table>
+                @endif
+            </x-card>
+
+            <x-card title="Problèmes agricoles" subtitle="Constats rattachés à cette culture">
+                @if ($issues->isEmpty())
+                    <p class="text-sm text-slate-600">Aucun problème signalé.</p>
+                @else
+                    <ul class="space-y-2 text-sm">
+                        @foreach ($issues as $issue)
+                            <li class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
+                                <div class="min-w-0">
+                                    <a href="{{ route('issues.show', $issue) }}" class="font-medium text-emerald-700 hover:underline">
+                                        {{ $issue->title }}
+                                    </a>
+                                    <p class="text-xs text-slate-500">{{ $issue->type->label() }} · {{ $issue->observed_at->format('d/m/Y') }}</p>
+                                </div>
+                                <span class="shrink-0 rounded px-2 py-0.5 text-xs font-semibold {{ $issue->severity->value === 'critical' ? 'bg-red-100 text-red-800' : ($issue->severity->value === 'high' ? 'bg-orange-100 text-orange-800' : 'bg-amber-100 text-amber-800') }}">
+                                    {{ $issue->severity->label() }}
+                                </span>
+                            </li>
+                        @endforeach
+                    </ul>
                 @endif
             </x-card>
 

@@ -157,7 +157,7 @@ class ExportTest extends TestCase
         $this->assertStringContainsString('Vente au marché', $content);
     }
 
-    public function test_un_agent_peut_exporter_les_etats_de_son_exploitation(): void
+    public function test_un_agent_peut_exporter_les_etats_operationnels_mais_pas_les_finances(): void
     {
         $farm = $this->createFarm();
         $this->actingAsFarmMember($farm, FarmRole::Agent);
@@ -165,6 +165,6 @@ class ExportTest extends TestCase
         $this->get(route('exports.campaigns'))->assertOk();
         $this->get(route('exports.stock'))->assertOk();
         $this->get(route('exports.sales'))->assertOk();
-        $this->get(route('exports.finances'))->assertOk();
+        $this->get(route('exports.finances'))->assertForbidden();
     }
 }

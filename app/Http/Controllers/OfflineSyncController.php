@@ -10,6 +10,7 @@ use App\Models\Activity;
 use App\Models\Campaign;
 use App\Models\Harvest;
 use App\Services\HarvestService;
+use App\Support\DashboardCache;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
@@ -58,6 +59,8 @@ class OfflineSyncController extends Controller
 
             return $this->activityResponse($activity, 'existing');
         }
+
+        DashboardCache::forget($this->farm());
 
         return $this->activityResponse($activity, 'created');
     }

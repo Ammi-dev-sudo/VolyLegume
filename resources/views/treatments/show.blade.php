@@ -50,9 +50,26 @@
                 <div class="flex justify-between gap-4"><dt class="text-slate-500">Appliqué par</dt>
                     <dd>{{ $treatment->appliedBy?->name ?? '—' }}</dd>
                 </div>
+                <div class="flex justify-between gap-4"><dt class="text-slate-500">Problème associé</dt>
+                    <dd class="text-right">
+                        @if ($treatment->cropIssue)
+                            <a href="{{ route('issues.show', $treatment->cropIssue) }}" class="text-emerald-700 hover:underline">
+                                {{ $treatment->cropIssue->reference }} — {{ $treatment->cropIssue->title }}
+                            </a>
+                        @else
+                            —
+                        @endif
+                    </dd>
+                </div>
             </dl>
             @if (filled($treatment->notes))
                 <p class="mt-4 whitespace-pre-line border-t border-slate-100 pt-3 text-sm text-slate-700">{{ $treatment->notes }}</p>
+            @endif
+            @if (filled($treatment->result_observed))
+                <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-emerald-800">Résultat observé</p>
+                    <p class="mt-1 whitespace-pre-line">{{ $treatment->result_observed }}</p>
+                </div>
             @endif
         </x-card>
 

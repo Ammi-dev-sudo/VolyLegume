@@ -37,16 +37,22 @@
         'campaigns' => 'Campagnes',
     ];
 
-    $baseQuery = array_filter([
-        'month' => $monthStart->format('Y-m'),
-        'campaign_id' => $campaignId,
-    ]);
+    $viewLabels = [
+        'month' => 'Vue mensuelle',
+        'week' => 'Vue hebdomadaire',
+        'day' => 'Vue journalière',
+    ];
 
-    $monthLink = fn (string $month) => route('calendar.index', array_filter([
-        'month' => $month,
-        'show' => $show !== 'all' ? $show : null,
+    $periodParameters = $view === 'month'
+        ? ['month' => $monthStart->format('Y-m')]
+        : ['date' => $anchor->toDateString()];
+
+    $filterLink = fn (string $key) => route('calendar.index', array_filter(array_merge([
+        'view' => $view,
+    ], $periodParameters, [
+        'show' => $key !== 'all' ? $key : null,
         'campaign_id' => $campaignId,
-    ]));
+    ])));
 
     $legend = [
         ['label' => 'Activité prévue', 'color' => 'sky'],
@@ -70,7 +76,7 @@
             <div>
                 <span class="inline-flex animate-fade-in-up items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ring-1 ring-white/20">
                     <span class="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse-soft"></span>
-                    Vue mensuelle
+                    {{ $viewLabels[$view] }}
                 </span>
                 <h1 class="mt-3 animate-fade-in-up text-2xl font-bold sm:text-3xl" style="animation-delay: 70ms">
                     Agenda de <span class="gradient-text">{{ $currentFarm->name }}</span>
@@ -81,22 +87,22 @@
             </div>
 
             <div class="flex animate-fade-in-up flex-wrap items-center gap-2" style="animation-delay: 200ms">
-                <a href="{{ $monthLink($previousMonth) }}" aria-label="Mois précédent"
+                <a href="{{ $previousLink }}" aria-label="Période précédente"
                    class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20 transition hover:-translate-x-0.5 hover:bg-white/20">
                     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                         <path d="M15 6l-6 6 6 6" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </a>
                 <span class="min-w-[9.5rem] rounded-full bg-white/10 px-4 py-2 text-center text-sm font-semibold capitalize ring-1 ring-white/20">
-                    {{ $monthLabel }}
+                    {{ $rangeLabel }}
                 </span>
-                <a href="{{ $monthLink($nextMonth) }}" aria-label="Mois suivant"
+                <a href="{{ $nextLink }}" aria-label="Période suivante"
                    class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20 transition hover:translate-x-0.5 hover:bg-white/20">
                     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                         <path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </a>
-                <a href="{{ $monthLink($currentMonth) }}"
+                <a href="{{ $todayLink }}"
                    class="rounded-full bg-white px-4 py-2 text-sm font-semibold text-emerald-800 shadow transition hover:-translate-y-0.5 hover:shadow-lg">
                     Aujourd’hui
                 </a>
@@ -105,7 +111,7 @@
     </section>
 
     <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-reveal-group="60">
-        <a href="{{ route('activities.index', ['from' => $monthStart->toDateString(), 'to' => $monthEnd->toDateString()]) }}"
+        <a href="{{ route('activities.index', ['from' => $rangeStart->toDateString(), 'to' => $rangeEnd->toDateString()]) }}"
            class="resource-card flex animate-fade-in-up items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-reveal>
             <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-100">
                 <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -165,25 +171,36 @@
     </div>
 
     <div class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-        <div class="flex flex-wrap gap-1.5">
-            @foreach ($categories as $key => $label)
-                @php
-                    $isActive = $show === $key;
-                    $url = route('calendar.index', array_filter([
-                        'month' => $monthStart->format('Y-m'),
-                        'campaign_id' => $campaignId,
-                        'show' => $key !== 'all' ? $key : null,
-                    ]));
-                @endphp
-                <a href="{{ $url }}"
-                   class="rounded-full px-3 py-1.5 text-xs font-semibold transition {{ $isActive ? 'bg-emerald-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-800' }}">
-                    {{ $label }}
-                </a>
-            @endforeach
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="inline-flex rounded-full bg-slate-100 p-0.5">
+                @foreach ($viewLabels as $viewKey => $viewLabel)
+                    <a href="{{ $viewLinks[$viewKey] }}"
+                       class="rounded-full px-2.5 py-1 text-xs font-semibold transition {{ $view === $viewKey ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-500 hover:text-emerald-800' }}">
+                        {{ ['month' => 'Mois', 'week' => 'Semaine', 'day' => 'Jour'][$viewKey] }}
+                    </a>
+                @endforeach
+            </div>
+
+            <div class="flex flex-wrap gap-1.5">
+                @foreach ($categories as $key => $label)
+                    @php
+                        $isActive = $show === $key;
+                    @endphp
+                    <a href="{{ $filterLink($key) }}"
+                       class="rounded-full px-3 py-1.5 text-xs font-semibold transition {{ $isActive ? 'bg-emerald-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-800' }}">
+                        {{ $label }}
+                    </a>
+                @endforeach
+            </div>
         </div>
 
         <form method="GET" action="{{ route('calendar.index') }}" class="flex flex-wrap items-center gap-2 text-xs">
-            <input type="hidden" name="month" value="{{ $monthStart->format('Y-m') }}">
+            <input type="hidden" name="view" value="{{ $view }}">
+            @if ($view === 'month')
+                <input type="hidden" name="month" value="{{ $monthStart->format('Y-m') }}">
+            @else
+                <input type="hidden" name="date" value="{{ $anchor->toDateString() }}">
+            @endif
             @if ($show !== 'all')
                 <input type="hidden" name="show" value="{{ $show }}">
             @endif
@@ -211,6 +228,49 @@
         </div>
     @endif
 
+    @if ($view === 'day')
+        @php
+            $day = $days[0];
+            $dayEvents = $events[$day->toDateString()] ?? [];
+        @endphp
+        <div class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm animate-fade-in-up sm:p-6">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Journée</p>
+                    <h2 class="mt-1 text-xl font-semibold capitalize text-slate-800">{{ $day->translatedFormat('l j F Y') }}</h2>
+                </div>
+                <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                    {{ count($dayEvents) }} événement(s)
+                </span>
+            </div>
+
+            @if (count($dayEvents) === 0)
+                <p class="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                    Aucun événement prévu ce jour.
+                </p>
+            @else
+                <ul class="mt-5 space-y-2">
+                    @foreach ($dayEvents as $event)
+                        <li>
+                            <a href="{{ $event['url'] }}"
+                               class="flex items-start gap-3 rounded-xl border px-4 py-3 text-sm transition hover:-translate-y-0.5 {{ $eventStyles[$event['color']] ?? $eventStyles['slate'] }}">
+                                <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full {{ $dotStyles[$event['color']] ?? $dotStyles['slate'] }}"></span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block font-semibold">{{ $event['label'] }}</span>
+                                    <span class="mt-0.5 block text-xs opacity-75">
+                                        @if ($event['time'])
+                                            {{ $event['time'] }} ·
+                                        @endif
+                                        {{ $event['meta'] }}
+                                    </span>
+                                </span>
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </div>
+    @else
     <div class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm animate-fade-in-up">
         <div class="overflow-x-auto">
             <div class="min-w-[46rem]">
@@ -225,7 +285,7 @@
                         @php
                             $key = $day->toDateString();
                             $dayEvents = $events[$key] ?? [];
-                            $isCurrentMonth = $day->month === $monthStart->month && $day->year === $monthStart->year;
+                            $isCurrentMonth = $view !== 'month' || ($day->month === $monthStart->month && $day->year === $monthStart->year);
                             $isToday = $day->isToday();
                             $isWeekend = $day->isWeekend();
                         @endphp
@@ -263,6 +323,7 @@
             </div>
         </div>
     </div>
+    @endif
 
     <div class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-600 shadow-sm">
         <span class="font-semibold text-slate-700">Légende :</span>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\InsufficientStockException;
 use App\Http\Controllers\Concerns\UsesFarmContext;
 use App\Models\Campaign;
+use App\Models\CropIssue;
 use App\Models\Input;
 use App\Models\PhytosanitaryTreatment;
 use App\Services\TreatmentService;
@@ -41,6 +42,7 @@ class TreatmentController extends Controller
         return view('treatments.create', $this->options() + [
             'phiInputs' => $this->phiInputs(),
             'selectedCampaign' => $request->integer('campaign_id') ?: null,
+            'selectedIssue' => $request->integer('crop_issue_id') ?: null,
         ]);
     }
 
@@ -59,11 +61,23 @@ class TreatmentController extends Controller
             'pre_harvest_days' => ['required', 'integer', 'min:0'],
             'applied_at' => ['required', 'date', 'before_or_equal:now'],
             'delay_source' => ['nullable', 'string', 'max:255'],
+            'crop_issue_id' => ['nullable', Rule::exists('crop_issues', 'id')->where('farm_id', $farmId)],
             'notes' => ['nullable', 'string'],
+            'result_observed' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $campaign = Campaign::query()->forFarm($farmId)->findOrFail($validated['campaign_id']);
         $input = Input::query()->forFarm($farmId)->findOrFail($validated['input_id']);
+
+        if (! empty($validated['crop_issue_id'])) {
+            $issue = CropIssue::query()->forFarm($farmId)->findOrFail($validated['crop_issue_id']);
+
+            if ($issue->campaign_id !== null && (int) $issue->campaign_id !== (int) $campaign->id) {
+                return back()->withInput()->withErrors([
+                    'crop_issue_id' => 'Le problème sélectionné ne concerne pas cette campagne.',
+                ]);
+            }
+        }
 
         try {
             $treatment = $service->record($campaign, $input, $request->user(), $validated);
@@ -77,7 +91,7 @@ class TreatmentController extends Controller
 
     public function show(PhytosanitaryTreatment $treatment): View
     {
-        $treatment->load(['campaign.crop', 'input', 'activity', 'stockMovement', 'appliedBy']);
+        $treatment->load(['campaign.crop', 'cropIssue', 'input', 'activity', 'stockMovement', 'appliedBy']);
 
         return view('treatments.show', compact('treatment'));
     }
@@ -90,6 +104,7 @@ class TreatmentController extends Controller
         return [
             'campaigns' => Campaign::query()->forFarm($this->farmId())->orderByDesc('start_date')->get(),
             'inputs' => Input::query()->forFarm($this->farmId())->orderBy('name')->get(),
+            'issues' => CropIssue::query()->forFarm($this->farmId())->open()->orderByDesc('observed_at')->get(),
         ];
     }
 

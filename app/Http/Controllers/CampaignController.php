@@ -8,7 +8,9 @@ use App\Http\Controllers\Concerns\UsesFarmContext;
 use App\Models\Campaign;
 use App\Models\Crop;
 use App\Models\ProductionUnit;
+use App\Models\ProductionUnitZone;
 use App\Services\CropCalendarService;
+use App\Services\CropProgressService;
 use App\Services\DashboardService;
 use App\Services\IrrigationService;
 use App\Support\DashboardCache;
@@ -27,8 +29,8 @@ class CampaignController extends Controller
     {
         $campaigns = Campaign::query()
             ->forFarm($this->farmId())
-            ->with(['productionUnit', 'crop'])
-            ->withCount(['activities', 'treatments', 'harvests'])
+            ->with(['productionUnit', 'zone', 'crop'])
+            ->withCount(['activities', 'treatments', 'harvests', 'issues'])
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')))
             ->orderByDesc('start_date')
             ->paginate(15)
@@ -61,9 +63,9 @@ class CampaignController extends Controller
         return redirect()->route('campaigns.index')->with('status', 'Campagne créée.');
     }
 
-    public function show(Campaign $campaign, CropCalendarService $calendar, DashboardService $dashboard, IrrigationService $irrigation): View
+    public function show(Campaign $campaign, CropCalendarService $calendar, DashboardService $dashboard, IrrigationService $irrigation, CropProgressService $progress): View
     {
-        $campaign->load(['productionUnit', 'crop']);
+        $campaign->load(['productionUnit', 'zone', 'crop', 'stageEvents.recordedBy']);
 
         return view('campaigns.show', [
             'campaign' => $campaign,
@@ -74,6 +76,9 @@ class CampaignController extends Controller
             'metrics' => $dashboard->forFarm($this->farm(), ['campaign_id' => $campaign->id]),
             'latestHarvestBound' => $campaign->treatments()->max('minimum_harvest_at'),
             'irrigationSummary' => $irrigation->summaryForCampaign($campaign),
+            'progress' => $progress->forCampaign($campaign),
+            'issues' => $campaign->issues()->with('reportedBy:id,name')->get(),
+            'photoCount' => $campaign->photos()->count(),
         ]);
     }
 
@@ -99,9 +104,14 @@ class CampaignController extends Controller
     {
         Gate::authorize('delete', $campaign);
 
-        if ($campaign->harvests()->exists() || $campaign->treatments()->exists() || $campaign->expenses()->exists() || $campaign->revenues()->exists()) {
+        if ($campaign->harvests()->exists()
+            || $campaign->treatments()->exists()
+            || $campaign->expenses()->exists()
+            || $campaign->revenues()->exists()
+            || $campaign->issues()->exists()
+            || $campaign->stageEvents()->exists()) {
             return back()->withErrors([
-                'campaign' => 'Cette campagne porte des écritures métier ; annulez-la plutôt que de la supprimer.',
+                'campaign' => 'Cette campagne porte des écritures de suivi ; annulez-la plutôt que de la supprimer.',
             ]);
         }
 
@@ -118,6 +128,7 @@ class CampaignController extends Controller
     {
         return [
             'productionUnits' => ProductionUnit::query()->forFarm($this->farmId())->orderBy('code')->get(),
+            'zones' => ProductionUnitZone::query()->forFarm($this->farmId())->where('is_active', true)->with('productionUnit:id,code,name')->orderBy('code')->get(),
             'crops' => Crop::query()->forFarm($this->farmId())->where('is_active', true)->orderBy('name')->get(),
             'referenceTypes' => collect(ReferenceType::cases()),
             'statuses' => collect(CampaignStatus::cases()),
@@ -133,6 +144,7 @@ class CampaignController extends Controller
 
         $validated = $request->validate([
             'production_unit_id' => ['required', Rule::exists('production_units', 'id')->where('farm_id', $farmId)],
+            'production_unit_zone_id' => ['nullable', Rule::exists('production_unit_zones', 'id')->where('farm_id', $farmId)],
             'crop_id' => ['required', Rule::exists('crops', 'id')->where('farm_id', $farmId)],
             'name' => ['required', 'string', 'max:150'],
             'start_date' => ['required', 'date'],
@@ -153,9 +165,23 @@ class CampaignController extends Controller
 
         $parcel = ProductionUnit::query()->forFarm($farmId)->findOrFail($validated['production_unit_id']);
 
-        if ((float) $validated['cultivated_area_m2'] > (float) $parcel->area_m2) {
+        $limitArea = (float) $parcel->area_m2;
+
+        if (! empty($validated['production_unit_zone_id'])) {
+            $zone = ProductionUnitZone::query()->forFarm($farmId)->findOrFail($validated['production_unit_zone_id']);
+
+            if ((int) $zone->production_unit_id !== (int) $parcel->id) {
+                throw ValidationException::withMessages([
+                    'production_unit_zone_id' => 'La zone sélectionnée n’appartient pas à cette parcelle.',
+                ]);
+            }
+
+            $limitArea = (float) $zone->area_m2;
+        }
+
+        if ((float) $validated['cultivated_area_m2'] > $limitArea) {
             throw ValidationException::withMessages([
-                'cultivated_area_m2' => 'La superficie cultivée ne peut pas dépasser celle de la parcelle.',
+                'cultivated_area_m2' => 'La superficie cultivée ne peut pas dépasser la surface disponible (parcelle ou zone).',
             ]);
         }
 

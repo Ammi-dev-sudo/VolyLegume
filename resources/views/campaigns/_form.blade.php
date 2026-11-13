@@ -13,6 +13,12 @@
                         placeholder="— Choisir —" />
     </div>
 
+    <x-select-field name="production_unit_zone_id" label="Zone de culture (facultatif)"
+                    :value="old('production_unit_zone_id', $campaign->production_unit_zone_id ?? null)"
+                    :options="$zones->mapWithKeys(fn ($zone) => [$zone->id => $zone->productionUnit?->code . ' · ' . $zone->code . ' — ' . $zone->name])"
+                    placeholder="— Toute la parcelle —"
+                    hint="La surface cultivée ne pourra pas dépasser la surface de la zone sélectionnée." />
+
     <div class="grid gap-4 sm:grid-cols-3">
         <x-field name="start_date" label="Date de référence" type="date" required
                  value="{{ old('start_date', isset($campaign) && $campaign->start_date ? $campaign->start_date->toDateString() : now()->toDateString()) }}" />

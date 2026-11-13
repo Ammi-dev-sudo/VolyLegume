@@ -111,4 +111,14 @@ class ProductionUnit extends Model
     {
         return $this->hasMany(ProductionUnitPhoto::class)->orderByDesc('taken_at')->orderByDesc('id');
     }
+
+    public function zones(): HasMany
+    {
+        return $this->hasMany(ProductionUnitZone::class)->orderBy('code');
+    }
+
+    public function issues(): HasMany
+    {
+        return $this->hasMany(CropIssue::class)->orderByDesc('observed_at');
+    }
 }

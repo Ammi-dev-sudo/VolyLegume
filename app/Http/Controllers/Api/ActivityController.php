@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreActivityRequest;
 use App\Http\Resources\ActivityResource;
 use App\Models\Activity;
+use App\Support\DashboardCache;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
@@ -40,6 +41,8 @@ class ActivityController extends Controller
                     ->firstOrFail();
             }
         }
+
+        DashboardCache::forget($this->farm());
 
         return (new ActivityResource($activity->load('campaign')))
             ->response()

@@ -21,6 +21,8 @@ class RevenueController extends Controller
 
     public function index(Request $request): View
     {
+        Gate::authorize('viewAny', Revenue::class);
+
         $revenues = Revenue::query()
             ->forFarm($this->farmId())
             ->with(['campaign.crop', 'harvest', 'recordedBy'])

@@ -28,6 +28,51 @@ class FinanceAuthorizationTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_un_agent_ne_peut_pas_consulter_les_pages_financieres(): void
+    {
+        $farm = $this->createFarm();
+        $this->actingAsFarmMember($farm, FarmRole::Agent);
+
+        $this->get(route('expenses.index'))->assertForbidden();
+        $this->get(route('revenues.index'))->assertForbidden();
+        $this->get(route('profitability.index'))->assertForbidden();
+        $this->get(route('profitability.print'))->assertForbidden();
+        $this->get(route('exports.finances'))->assertForbidden();
+    }
+
+    public function test_un_responsable_peut_consulter_les_pages_financieres(): void
+    {
+        $farm = $this->createFarm();
+        $this->actingAsFarmMember($farm, FarmRole::Responsable);
+
+        $this->get(route('expenses.index'))->assertOk();
+        $this->get(route('revenues.index'))->assertOk();
+        $this->get(route('profitability.index'))->assertOk();
+    }
+
+    public function test_le_tableau_de_bord_masque_les_montants_aux_agents(): void
+    {
+        $farm = $this->createFarm();
+        $this->actingAsFarmMember($farm, FarmRole::Agent);
+
+        $this->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSee('Bénéfice simplifié')
+            ->assertDontSee('Voir la rentabilité')
+            ->assertSee('Votre rôle ne donne pas accès aux montants financiers.');
+    }
+
+    public function test_le_tableau_de_bord_affiche_les_montants_aux_responsables(): void
+    {
+        $farm = $this->createFarm();
+        $this->actingAsFarmMember($farm, FarmRole::Responsable);
+
+        $this->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Bénéfice simplifié')
+            ->assertSee('Voir la rentabilité');
+    }
+
     public function test_un_responsable_peut_creer_une_depense(): void
     {
         $farm = $this->createFarm();

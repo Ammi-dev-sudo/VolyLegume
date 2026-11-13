@@ -35,7 +35,11 @@
                     @foreach ($units as $unit)
                         <tr>
                             <td class="py-2 pr-4 font-mono text-xs">{{ $unit->code }}</td>
-                            <td class="py-2 pr-4">{{ $unit->name }}</td>
+                            <td class="py-2 pr-4">
+                                <a href="{{ route('production-units.show', $unit) }}" class="font-medium text-emerald-700 hover:underline">
+                                    {{ $unit->name }}
+                                </a>
+                            </td>
                             <td class="py-2 pr-4">{{ number_format((float) $unit->area_m2, 0, ',', ' ') }} m²</td>
                             <td class="py-2 pr-4 text-xs">{{ ($unit->length_m !== null && $unit->width_m !== null) ? number_format((float)$unit->length_m,2,',',' ').' × '.number_format((float)$unit->width_m,2,',',' ').' m' : '—' }}</td>
                             <td class="py-2 pr-4 text-xs">
@@ -70,8 +74,9 @@
                                 </span>
                             </td>
                             <td class="py-2 text-right">
+                                <a href="{{ route('production-units.show', $unit) }}" class="text-emerald-700 hover:underline">Détails</a>
                                 @can('manage-referentials')
-                                    <a href="{{ route('production-units.edit', $unit) }}" class="text-emerald-700 hover:underline">Modifier</a>
+                                    <a href="{{ route('production-units.edit', $unit) }}" class="ml-3 text-emerald-700 hover:underline">Modifier</a>
                                     <form method="POST" action="{{ route('production-units.destroy', $unit) }}" class="inline"
                                           onsubmit="return confirm('Supprimer cette parcelle ?');">
                                         @csrf

@@ -14,7 +14,7 @@ COPY public ./public
 RUN npm run build
 
 
-FROM php:8.3-apache AS app
+FROM php:8.4-apache AS app
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public \
     COMPOSER_ALLOW_SUPERUSER=1

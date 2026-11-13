@@ -53,6 +53,7 @@ class DatabaseSeeder extends Seeder
         $this->call(CropCatalogSeeder::class);
         $this->call(CropGuideSeeder::class);
         $this->call(CommercialDataSeeder::class);
+        $this->call(CropTrackingSeeder::class);
     }
 
     /**

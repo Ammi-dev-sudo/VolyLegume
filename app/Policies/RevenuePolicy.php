@@ -12,12 +12,12 @@ class RevenuePolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->isMember();
+        return $this->canManageFinances();
     }
 
     public function view(User $user, Revenue $revenue): bool
     {
-        return $this->isMember() && $this->belongsToCurrentFarm($revenue);
+        return $this->canManageFinances() && $this->belongsToCurrentFarm($revenue);
     }
 
     public function create(User $user): bool

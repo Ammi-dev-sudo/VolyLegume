@@ -19,6 +19,8 @@ class ExpenseController extends Controller
 
     public function index(Request $request): View
     {
+        Gate::authorize('viewAny', Expense::class);
+
         $expenses = Expense::query()
             ->forFarm($this->farmId())
             ->with(['campaign.crop', 'recordedBy'])

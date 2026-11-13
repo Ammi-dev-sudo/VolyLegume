@@ -13,7 +13,11 @@ use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\CalendarGenerationController;
 use App\Http\Controllers\CalendarStepController;
 use App\Http\Controllers\CampaignController;
+use App\Http\Controllers\CampaignPhotoController;
+use App\Http\Controllers\CampaignStageController;
 use App\Http\Controllers\CropController;
+use App\Http\Controllers\CropIssueController;
+use App\Http\Controllers\CropIssuePhotoController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
@@ -30,7 +34,9 @@ use App\Http\Controllers\OfflineSyncController;
 use App\Http\Controllers\ProduceLotController;
 use App\Http\Controllers\ProductionUnitController;
 use App\Http\Controllers\ProductionUnitPhotoController;
+use App\Http\Controllers\ProductionUnitZoneController;
 use App\Http\Controllers\ProfitabilityController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\RevenueController;
 use App\Http\Controllers\SaleController;
@@ -104,6 +110,10 @@ Route::middleware(['auth', 'farm'])->group(function () {
     Route::get('exports/ventes.csv', [ExportController::class, 'sales'])->name('exports.sales');
     Route::get('exports/finances.csv', [ExportController::class, 'finances'])->name('exports.finances');
 
+    Route::get('rapports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('rapports/pdf', [ReportController::class, 'pdf'])->name('reports.pdf');
+    Route::get('rapports/excel', [ReportController::class, 'excel'])->name('reports.excel');
+
     Route::get('journal', [AuditLogController::class, 'index'])->name('audit.index');
 
     Route::get('equipe', [TeamController::class, 'index'])->name('team.index');
@@ -114,13 +124,28 @@ Route::middleware(['auth', 'farm'])->group(function () {
     Route::get('parcelles', [ProductionUnitController::class, 'index'])->name('production-units.index');
     Route::get('parcelles/creer', [ProductionUnitController::class, 'create'])->name('production-units.create');
     Route::post('parcelles', [ProductionUnitController::class, 'store'])->name('production-units.store');
+    Route::get('parcelles/{productionUnit}', [ProductionUnitController::class, 'show'])->name('production-units.show');
     Route::get('parcelles/{productionUnit}/modifier', [ProductionUnitController::class, 'edit'])->name('production-units.edit');
     Route::get('parcelles/{productionUnit}/contour', [ProductionUnitController::class, 'editBoundary'])->name('production-units.boundary.edit');
+    Route::post('parcelles/{productionUnit}/zones', [ProductionUnitZoneController::class, 'store'])->name('production-units.zones.store');
+    Route::put('zones/{zone}', [ProductionUnitZoneController::class, 'update'])->name('zones.update');
+    Route::delete('zones/{zone}', [ProductionUnitZoneController::class, 'destroy'])->name('zones.destroy');
     Route::put('parcelles/{productionUnit}/contour', [ProductionUnitController::class, 'updateBoundary'])->name('production-units.boundary.update');
     Route::put('parcelles/{productionUnit}', [ProductionUnitController::class, 'update'])->name('production-units.update');
     Route::delete('parcelles/{productionUnit}', [ProductionUnitController::class, 'destroy'])->name('production-units.destroy');
     Route::post('parcelles/{productionUnit}/photos', [ProductionUnitPhotoController::class, 'store'])->name('production-units.photos.store');
     Route::delete('parcelles/photos/{productionUnitPhoto}', [ProductionUnitPhotoController::class, 'destroy'])->name('production-units.photos.destroy');
+
+    Route::get('problemes', [CropIssueController::class, 'index'])->name('issues.index');
+    Route::get('problemes/creer', [CropIssueController::class, 'create'])->name('issues.create');
+    Route::post('problemes', [CropIssueController::class, 'store'])->name('issues.store');
+    Route::get('problemes/{issue}', [CropIssueController::class, 'show'])->name('issues.show');
+    Route::get('problemes/{issue}/modifier', [CropIssueController::class, 'edit'])->name('issues.edit');
+    Route::put('problemes/{issue}', [CropIssueController::class, 'update'])->name('issues.update');
+    Route::patch('problemes/{issue}/statut', [CropIssueController::class, 'updateStatus'])->name('issues.status');
+    Route::delete('problemes/{issue}', [CropIssueController::class, 'destroy'])->name('issues.destroy');
+    Route::post('problemes/{issue}/photos', [CropIssuePhotoController::class, 'store'])->name('issues.photos.store');
+    Route::delete('problemes/photos/{photo}', [CropIssuePhotoController::class, 'destroy'])->name('issues.photos.destroy');
 
     Route::get('cultures', [CropController::class, 'index'])->name('crops.index');
     Route::get('cultures/creer', [CropController::class, 'create'])->name('crops.create');
@@ -141,6 +166,12 @@ Route::middleware(['auth', 'farm'])->group(function () {
     Route::get('campagnes/creer', [CampaignController::class, 'create'])->name('campaigns.create');
     Route::post('campagnes', [CampaignController::class, 'store'])->name('campaigns.store');
     Route::get('campagnes/{campaign}', [CampaignController::class, 'show'])->name('campaigns.show');
+    Route::post('campagnes/{campaign}/etapes', [CampaignStageController::class, 'store'])->name('campaigns.stages.store');
+    Route::delete('etapes/{stage}', [CampaignStageController::class, 'destroy'])->name('campaigns.stages.destroy');
+    Route::get('campagnes/{campaign}/photos', [CampaignPhotoController::class, 'index'])->name('campaigns.photos.index');
+    Route::post('campagnes/{campaign}/photos', [CampaignPhotoController::class, 'store'])->name('campaigns.photos.store');
+    Route::get('campagnes/{campaign}/photos/comparer', [CampaignPhotoController::class, 'compare'])->name('campaigns.photos.compare');
+    Route::delete('campagnes/{campaign}/photos/{photo}', [CampaignPhotoController::class, 'destroy'])->name('campaigns.photos.destroy');
     Route::get('campagnes/{campaign}/modifier', [CampaignController::class, 'edit'])->name('campaigns.edit');
     Route::put('campagnes/{campaign}', [CampaignController::class, 'update'])->name('campaigns.update');
     Route::delete('campagnes/{campaign}', [CampaignController::class, 'destroy'])->name('campaigns.destroy');

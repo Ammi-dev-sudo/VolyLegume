@@ -19,6 +19,7 @@ class Campaign extends Model
     protected $fillable = [
         'farm_id',
         'production_unit_id',
+        'production_unit_zone_id',
         'crop_id',
         'name',
         'start_date',
@@ -63,6 +64,26 @@ class Campaign extends Model
     public function productionUnit(): BelongsTo
     {
         return $this->belongsTo(ProductionUnit::class, 'production_unit_id');
+    }
+
+    public function zone(): BelongsTo
+    {
+        return $this->belongsTo(ProductionUnitZone::class, 'production_unit_zone_id');
+    }
+
+    public function stageEvents(): HasMany
+    {
+        return $this->hasMany(CampaignStageEvent::class)->orderBy('recorded_at')->orderBy('id');
+    }
+
+    public function photos(): HasMany
+    {
+        return $this->hasMany(ProductionUnitPhoto::class)->orderByDesc('taken_at')->orderByDesc('id');
+    }
+
+    public function issues(): HasMany
+    {
+        return $this->hasMany(CropIssue::class)->orderByDesc('observed_at');
     }
 
     public function crop(): BelongsTo

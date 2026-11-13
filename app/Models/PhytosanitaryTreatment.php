@@ -15,6 +15,7 @@ class PhytosanitaryTreatment extends Model
     protected $fillable = [
         'farm_id',
         'campaign_id',
+        'crop_issue_id',
         'input_id',
         'activity_id',
         'stock_movement_id',
@@ -26,6 +27,7 @@ class PhytosanitaryTreatment extends Model
         'minimum_harvest_at',
         'applied_by',
         'notes',
+        'result_observed',
     ];
 
     protected function casts(): array
@@ -46,6 +48,11 @@ class PhytosanitaryTreatment extends Model
     public function campaign(): BelongsTo
     {
         return $this->belongsTo(Campaign::class);
+    }
+
+    public function cropIssue(): BelongsTo
+    {
+        return $this->belongsTo(CropIssue::class);
     }
 
     public function input(): BelongsTo

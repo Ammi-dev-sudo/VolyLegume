@@ -40,11 +40,35 @@ class CalendarController extends Controller
     public function index(Request $request): View
     {
         $farmId = $this->farmId();
-        $monthStart = $this->resolveMonth($request->string('month')->toString());
-        $monthEnd = $monthStart->copy()->endOfMonth();
-        $gridStart = $monthStart->copy()->startOfWeek(Carbon::MONDAY);
-        $gridEnd = $monthEnd->copy()->endOfWeek(Carbon::SUNDAY);
         $campaignId = $request->integer('campaign_id') ?: null;
+
+        $view = $request->string('view')->toString();
+
+        if (! in_array($view, ['month', 'week', 'day'], true)) {
+            $view = 'month';
+        }
+
+        $anchor = $this->resolveDate($request->string('date')->toString());
+
+        if ($view === 'month') {
+            $monthStart = $this->resolveMonth($request->string('month')->toString());
+            $rangeStart = $monthStart->copy();
+            $rangeEnd = $monthStart->copy()->endOfMonth();
+            $gridStart = $rangeStart->copy()->startOfWeek(Carbon::MONDAY);
+            $gridEnd = $rangeEnd->copy()->endOfWeek(Carbon::SUNDAY);
+        } elseif ($view === 'week') {
+            $rangeStart = $anchor->copy()->startOfWeek(Carbon::MONDAY);
+            $rangeEnd = $anchor->copy()->endOfWeek(Carbon::SUNDAY);
+            $monthStart = $anchor->copy()->startOfMonth();
+            $gridStart = $rangeStart->copy();
+            $gridEnd = $rangeEnd->copy();
+        } else {
+            $rangeStart = $anchor->copy()->startOfDay();
+            $rangeEnd = $anchor->copy()->endOfDay();
+            $monthStart = $anchor->copy()->startOfMonth();
+            $gridStart = $rangeStart->copy();
+            $gridEnd = $rangeEnd->copy();
+        }
 
         $show = $request->string('show')->toString();
 
@@ -57,7 +81,8 @@ class CalendarController extends Controller
         if (in_array($show, ['all', 'activities'], true)) {
             $activities = Activity::query()
                 ->forFarm($farmId)
-                ->whereBetween('planned_date', [$gridStart->toDateString(), $gridEnd->toDateString()])
+                ->whereDate('planned_date', '>=', $gridStart->toDateString())
+                ->whereDate('planned_date', '<=', $gridEnd->toDateString())
                 ->when($campaignId, fn ($query) => $query->where('campaign_id', $campaignId))
                 ->with('campaign:id,name')
                 ->orderBy('planned_date')
@@ -152,9 +177,16 @@ class CalendarController extends Controller
                 ->forFarm($farmId)
                 ->when($campaignId, fn ($query) => $query->whereKey($campaignId))
                 ->where(function ($query) use ($gridStart, $gridEnd): void {
-                    $query->whereBetween('start_date', [$gridStart->toDateString(), $gridEnd->toDateString()])
-                        ->orWhereBetween('expected_end_date', [$gridStart->toDateString(), $gridEnd->toDateString()])
-                        ->orWhereBetween('actual_end_date', [$gridStart->toDateString(), $gridEnd->toDateString()]);
+                    $query->whereDate('start_date', '>=', $gridStart->toDateString())
+                        ->whereDate('start_date', '<=', $gridEnd->toDateString())
+                        ->orWhere(function ($query) use ($gridStart, $gridEnd): void {
+                            $query->whereDate('expected_end_date', '>=', $gridStart->toDateString())
+                                ->whereDate('expected_end_date', '<=', $gridEnd->toDateString());
+                        })
+                        ->orWhere(function ($query) use ($gridStart, $gridEnd): void {
+                            $query->whereDate('actual_end_date', '>=', $gridStart->toDateString())
+                                ->whereDate('actual_end_date', '<=', $gridEnd->toDateString());
+                        });
                 })
                 ->orderBy('start_date')
                 ->get();
@@ -206,19 +238,45 @@ class CalendarController extends Controller
             $days[] = $cursor->copy();
         }
 
+        $rangeLabel = match ($view) {
+            'week' => 'Semaine du '.$rangeStart->format('d/m/Y').' au '.$rangeEnd->format('d/m/Y'),
+            'day' => $rangeStart->translatedFormat('l j F Y'),
+            default => self::MONTHS[$monthStart->month].' '.$monthStart->year,
+        };
+
+        $previousAnchor = match ($view) {
+            'week' => $anchor->copy()->subWeek(),
+            'day' => $anchor->copy()->subDay(),
+            default => $rangeStart->copy()->subMonthNoOverflow(),
+        };
+
+        $nextAnchor = match ($view) {
+            'week' => $anchor->copy()->addWeek(),
+            'day' => $anchor->copy()->addDay(),
+            default => $rangeStart->copy()->addMonthNoOverflow(),
+        };
+
         return view('calendar.index', [
             'days' => $days,
             'events' => $events,
+            'view' => $view,
+            'anchor' => $anchor,
+            'rangeStart' => $rangeStart,
+            'rangeEnd' => $rangeEnd,
+            'rangeLabel' => $rangeLabel,
             'monthStart' => $monthStart,
-            'monthEnd' => $monthEnd,
-            'monthLabel' => self::MONTHS[$monthStart->month].' '.$monthStart->year,
-            'previousMonth' => $monthStart->copy()->subMonthNoOverflow()->format('Y-m'),
-            'nextMonth' => $monthStart->copy()->addMonthNoOverflow()->format('Y-m'),
-            'currentMonth' => now()->format('Y-m'),
+            'previousLink' => $this->calendarUrl($view, $previousAnchor, $show, $campaignId),
+            'nextLink' => $this->calendarUrl($view, $nextAnchor, $show, $campaignId),
+            'todayLink' => $this->calendarUrl($view, now(), $show, $campaignId),
+            'viewLinks' => [
+                'month' => $this->calendarUrl('month', $anchor, $show, $campaignId),
+                'week' => $this->calendarUrl('week', $anchor, $show, $campaignId),
+                'day' => $this->calendarUrl('day', $anchor, $show, $campaignId),
+            ],
             'show' => $show,
             'campaignId' => $campaignId,
             'campaigns' => Campaign::query()->forFarm($farmId)->orderByDesc('start_date')->get(['id', 'name']),
-            'summary' => $this->summary($farmId, $monthStart, $monthEnd, $campaignId),
+            'summary' => $this->summary($farmId, $rangeStart, $rangeEnd, $campaignId),
         ]);
     }
 
@@ -229,6 +287,35 @@ class CalendarController extends Controller
         }
 
         return now()->startOfMonth();
+    }
+
+    private function resolveDate(string $date): Carbon
+    {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1) {
+            return Carbon::createFromFormat('Y-m-d', $date)->startOfDay();
+        }
+
+        return now()->startOfDay();
+    }
+
+    private function calendarUrl(string $view, Carbon $anchor, string $show, ?int $campaignId): string
+    {
+        $parameters = [
+            'view' => $view,
+            'campaign_id' => $campaignId,
+        ];
+
+        if ($view === 'month') {
+            $parameters['month'] = $anchor->format('Y-m');
+        } else {
+            $parameters['date'] = $anchor->toDateString();
+        }
+
+        if ($show !== 'all') {
+            $parameters['show'] = $show;
+        }
+
+        return route('calendar.index', array_filter($parameters, fn ($value): bool => $value !== null));
     }
 
     /**
@@ -249,7 +336,8 @@ class CalendarController extends Controller
     {
         $activities = Activity::query()
             ->forFarm($farmId)
-            ->whereBetween('planned_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+            ->whereDate('planned_date', '>=', $monthStart->toDateString())
+            ->whereDate('planned_date', '<=', $monthEnd->toDateString())
             ->when($campaignId, fn ($query) => $query->where('campaign_id', $campaignId));
 
         return [
@@ -268,8 +356,8 @@ class CalendarController extends Controller
             'campaigns' => Campaign::query()
                 ->forFarm($farmId)
                 ->when($campaignId, fn ($query) => $query->whereKey($campaignId))
-                ->where('start_date', '<=', $monthEnd->toDateString())
-                ->where('expected_end_date', '>=', $monthStart->toDateString())
+                ->whereDate('start_date', '<=', $monthEnd->toDateString())
+                ->whereDate('expected_end_date', '>=', $monthStart->toDateString())
                 ->count(),
         ];
     }

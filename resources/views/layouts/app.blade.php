@@ -18,6 +18,8 @@
         'audit.*',
         'resources.*',
         'notifications.*',
+        'issues.*',
+        'reports.*',
     ];
 
     $navItems = [
@@ -44,6 +46,18 @@
             'label' => 'Campagnes',
             'pattern' => 'campaigns.*',
             'icon' => '<path d="M5 3v18" /><path d="M5 4h11l-2 3.5L16 11H5" />',
+        ],
+        [
+            'route' => 'issues.index',
+            'label' => 'Problèmes',
+            'pattern' => 'issues.*',
+            'icon' => '<path d="M12 9v4M12 17h.01" /><path d="M10.3 3.9 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />',
+        ],
+        [
+            'route' => 'reports.index',
+            'label' => 'Rapports',
+            'pattern' => 'reports.*',
+            'icon' => '<path d="M6 3h9l3 3v15H6z" /><path d="M9 12h6M9 16h6M9 8h3" />',
         ],
         [
             'route' => 'activities.index',
