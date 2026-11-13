@@ -155,13 +155,16 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
-      - name: Install PostgreSQL 18 client
+      - name: Ensure PostgreSQL 18 client
         run: |
-          sudo install -d /usr/share/postgresql-common/pgdg
-          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
-          sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client-18
+          if ! command -v pg_dump >/dev/null 2>&1 || [ "$(pg_dump --version | grep -oE '[0-9]+' | head -1)" -lt 18 ]; then
+            sudo apt-get remove -y libpq-dev || true
+            sudo install -d /usr/share/postgresql-common/pgdg
+            sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+            sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends postgresql-client-18
+          fi
           pg_dump --version
           pg_restore --version
 
