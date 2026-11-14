@@ -24,17 +24,22 @@ class ProductionUnitZoneController extends Controller
         $validated = $this->validated($request, $productionUnit);
 
         DB::transaction(function () use ($validated, $productionUnit): void {
-            $used = (float) $productionUnit->zones()->lockForUpdate()->sum('area_m2');
+            $lockedUnit = ProductionUnit::query()
+                ->whereKey($productionUnit->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            if ($used + (float) $validated['area_m2'] > (float) $productionUnit->area_m2) {
+            $used = (float) $lockedUnit->zones()->sum('area_m2');
+
+            if ($used + (float) $validated['area_m2'] > (float) $lockedUnit->area_m2) {
                 throw ValidationException::withMessages([
                     'area_m2' => 'La somme des zones ne peut pas dépasser la superficie de la parcelle.',
                 ]);
             }
 
             ProductionUnitZone::create($validated + [
-                'farm_id' => $productionUnit->farm_id,
-                'production_unit_id' => $productionUnit->id,
+                'farm_id' => $lockedUnit->farm_id,
+                'production_unit_id' => $lockedUnit->id,
             ]);
         });
 
@@ -50,15 +55,22 @@ class ProductionUnitZoneController extends Controller
         $unit = $zone->productionUnit;
         $validated = $this->validated($request, $unit, $zone);
 
-        $otherZonesArea = (float) $unit->zones()->whereKeyNot($zone->id)->sum('area_m2');
+        DB::transaction(function () use ($validated, $unit, $zone): void {
+            $lockedUnit = ProductionUnit::query()
+                ->whereKey($unit->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if ($otherZonesArea + (float) $validated['area_m2'] > (float) $unit->area_m2) {
-            throw ValidationException::withMessages([
-                'area_m2' => 'La somme des zones ne peut pas dépasser la superficie de la parcelle.',
-            ]);
-        }
+            $otherZonesArea = (float) $lockedUnit->zones()->whereKeyNot($zone->id)->sum('area_m2');
 
-        $zone->update($validated);
+            if ($otherZonesArea + (float) $validated['area_m2'] > (float) $lockedUnit->area_m2) {
+                throw ValidationException::withMessages([
+                    'area_m2' => 'La somme des zones ne peut pas dépasser la superficie de la parcelle.',
+                ]);
+            }
+
+            $zone->update($validated);
+        });
 
         DashboardCache::forget($this->farm());
 
