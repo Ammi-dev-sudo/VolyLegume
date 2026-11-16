@@ -19,14 +19,16 @@
             </div>
         </div>
         <div class="flex flex-wrap gap-2">
-            <form method="POST" action="{{ route('admin.users.status', $user) }}">
+            <form method="POST" action="{{ route('admin.users.status', $user) }}"
+                  onsubmit="return confirm('{{ $user->is_active ? 'Désactiver' : 'Réactiver' }} ce compte ?');">
                 @csrf
                 @method('PATCH')
                 <button type="submit" class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
                     {{ $user->is_active ? 'Désactiver le compte' : 'Réactiver le compte' }}
                 </button>
             </form>
-            <form method="POST" action="{{ route('admin.users.platform-admin', $user) }}">
+            <form method="POST" action="{{ route('admin.users.platform-admin', $user) }}"
+                  onsubmit="return confirm('Modifier le statut administrateur plateforme de ce compte ?');">
                 @csrf
                 @method('PATCH')
                 <button type="submit" class="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 hover:bg-amber-100">

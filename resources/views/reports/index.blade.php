@@ -2,6 +2,13 @@
 
 @section('title', 'Rapports')
 
+@php
+    $harvestUnitSummary = collect($report['harvests_by_unit'])
+        ->reject(fn (array $unit): bool => $unit['unit'] === 'kg')
+        ->map(fn (array $unit): string => number_format((float) $unit['quantity'], 1, ',', ' ').' '.$unit['unit'])
+        ->implode(' · ');
+@endphp
+
 @section('content')
     <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -65,9 +72,9 @@
                      :hint="$report['summary']['active_campaigns'].' active(s)'" />
         <x-stat-card label="Surface cultivée" :value="number_format((float) $report['summary']['cultivated_area_m2'], 0, ',', ' ').' m²'"
                      :count="$report['summary']['cultivated_area_m2']" :decimals="0" suffix=" m²" tone="gold" />
-        <x-stat-card label="Récoltes" :value="number_format((float) $report['summary']['harvested_quantity'], 1, ',', ' ')"
-                     :count="$report['summary']['harvested_quantity']" :decimals="1"
-                     :hint="$report['summary']['harvest_count'].' saisie(s)'" />
+        <x-stat-card label="Récoltes (kg)" :value="number_format((float) $report['summary']['harvested_quantity'], 1, ',', ' ').' kg'"
+                     :count="$report['summary']['harvested_quantity']" :decimals="1" suffix=" kg"
+                     :hint="$report['summary']['harvest_count'].' saisie(s)'.($harvestUnitSummary !== '' ? ' · '.$harvestUnitSummary : '')" />
         <x-stat-card label="Problèmes" :value="$report['summary']['issues']" :count="$report['summary']['issues']"
                      :hint="$report['summary']['open_issues'].' non résolu(s) · '.$report['summary']['critical_issues'].' critique(s)'"
                      :tone="$report['summary']['critical_issues'] > 0 ? 'danger' : 'default'" />

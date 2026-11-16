@@ -41,8 +41,15 @@
                      :count="$productionUnit->area_m2" :decimals="0" suffix=" m²" />
         <x-stat-card label="Campagnes" :value="$stats['campaigns']" :count="$stats['campaigns']"
                      :hint="$stats['active_campaigns'].' active(s)'" tone="info" />
-        <x-stat-card label="Récoltes cumulées" :value="number_format($stats['harvest_quantity'], 1, ',', ' ').' kg'"
-                     :count="$stats['harvest_quantity']" :decimals="1" suffix=" kg" />
+        @php
+            $otherHarvestUnits = collect($stats['harvest_units'])
+                ->except('kg')
+                ->map(fn ($quantity, $unit): string => number_format((float) $quantity, 1, ',', ' ').' '.$unit)
+                ->implode(' · ');
+        @endphp
+        <x-stat-card label="Récoltes cumulées (kg)" :value="number_format($stats['harvest_quantity'], 1, ',', ' ').' kg'"
+                     :count="$stats['harvest_quantity']" :decimals="1" suffix=" kg"
+                     :hint="$otherHarvestUnits !== '' ? $otherHarvestUnits : null" />
         <x-stat-card label="Eau enregistrée" :value="number_format($stats['irrigation_volume'], 1, ',', ' ').' m³'"
                      :count="$stats['irrigation_volume']" :decimals="1" suffix=" m³" tone="gold" />
     </div>

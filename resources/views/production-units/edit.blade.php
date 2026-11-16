@@ -22,6 +22,23 @@
                 </div>
                 <p class="-mt-2 text-xs text-slate-500">Les dimensions restent indicatives. Le contour géographique réel se dessine séparément.</p>
 
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <x-field name="soil_type" label="Type de sol (facultatif)"
+                             value="{{ old('soil_type', $productionUnit->soil_type) }}" />
+                    <x-field name="irrigation_type" label="Irrigation (facultatif)"
+                             value="{{ old('irrigation_type', $productionUnit->irrigation_type) }}" />
+                    <x-field name="sun_exposure" label="Exposition (facultatif)"
+                             value="{{ old('sun_exposure', $productionUnit->sun_exposure) }}" />
+                    <x-field name="slope" label="Pente (facultatif)"
+                             value="{{ old('slope', $productionUnit->slope) }}" />
+                </div>
+
+                <div>
+                    <label for="notes" class="block text-sm font-medium text-slate-700">Notes agronomiques (facultatif)</label>
+                    <textarea id="notes" name="notes" rows="3"
+                              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm">{{ old('notes', $productionUnit->notes) }}</textarea>
+                </div>
+
                 @php($boundaryArea = $productionUnit->boundaryAreaM2())
                 <div class="rounded-xl border {{ $boundaryArea !== null ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50' }} px-3 py-2 text-xs">
                     <p class="font-semibold {{ $boundaryArea !== null ? 'text-emerald-800' : 'text-amber-800' }}">

@@ -42,6 +42,11 @@
         $productionRows = collect($metrics['production_by_crop'])->take(6);
         $productionMax = max(1, (float) ($productionRows->max('quantity') ?? 0));
         $harvestUnitSummary = collect($metrics['harvest_units'])
+            ->except('kg')
+            ->map(fn ($quantity, $unit) => number_format((float) $quantity, 1, ',', ' ').' '.$unit)
+            ->implode(' · ');
+        $produceUnitSummary = collect($metrics['produce_units'])
+            ->except('kg')
             ->map(fn ($quantity, $unit) => number_format((float) $quantity, 1, ',', ' ').' '.$unit)
             ->implode(' · ');
     @endphp
@@ -182,9 +187,9 @@
             <x-stat-card label="Rendement" :value="$metrics['yield_kg_per_ha'] !== null ? number_format((float) $metrics['yield_kg_per_ha'], 1, ',', ' ').' kg/ha' : '—'"
                          :count="$metrics['yield_kg_per_ha']" :decimals="1" suffix=" kg/ha"
                          hint="Récoltes rapportées à la surface récoltée" tone="gold" />
-            <x-stat-card label="Stock récolté" :value="number_format((float) $metrics['produce_available'], 1, ',', ' ')"
-                         :count="$metrics['produce_available']" :decimals="1"
-                         :hint="$metrics['produce_lots_available'].' lot(s) disponible(s)'" />
+            <x-stat-card label="Stock récolté (kg)" :value="number_format((float) $metrics['produce_available'], 1, ',', ' ').' kg'"
+                         :count="$metrics['produce_available']" :decimals="1" suffix=" kg"
+                         :hint="$metrics['produce_lots_available'].' lot(s) disponible(s)'.($produceUnitSummary !== '' ? ' · '.$produceUnitSummary : '')" />
         </div>
     </section>
 

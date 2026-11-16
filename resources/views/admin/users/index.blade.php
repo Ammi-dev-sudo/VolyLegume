@@ -69,7 +69,8 @@
                             </span>
                         </td>
                         <td class="py-2 text-right text-xs">
-                            <form method="POST" action="{{ route('admin.users.status', $user) }}" class="inline">
+                            <form method="POST" action="{{ route('admin.users.status', $user) }}" class="inline"
+                                  onsubmit="return confirm('{{ $user->is_active ? 'Désactiver' : 'Réactiver' }} ce compte ?');">
                                 @csrf
                                 @method('PATCH')
                                 <button type="submit" class="text-slate-600 hover:underline">

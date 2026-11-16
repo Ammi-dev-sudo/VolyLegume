@@ -232,7 +232,7 @@ Les créations, modifications et suppressions des modèles sensibles sont journa
 
 ### RG08 — Devise et unités
 
-La devise est fixée à MGA. Les quantités de production et de stock sont exprimées en kilogrammes pour les récoltes et selon l'unité de base de l'intrant pour les stocks.
+La devise est fixée à MGA. Les récoltes conservent leur unité de saisie (kg, botte, pièce…) et ne sont jamais additionnées entre unités ; les indicateurs de rendement et les stocks consolidés en kilogrammes ne totalisent que les quantités exprimées en kg. Les stocks d'intrants utilisent leur unité de base.
 
 ### RG09 — Validation serveur
 
@@ -281,7 +281,7 @@ Le menu principal expose les neuf entrées les plus utilisées : tableau de bord
 | Policies Laravel | 19 Policies + trait commun | `app/Policies` |
 | Journalisation | `audit_logs`, `AuditLogger`, `Auditable` | `app/Support`, `app/Models/Concerns` |
 | Administration globale | Panneau `/admin` | `app/Http/Controllers/Admin` |
-| Tests | 170 tests, 658 assertions | `php artisan test` |
+| Tests | 209 tests, 846 assertions | `php artisan test` |
 | Base de données 8–15 tables (indicatif) | 26 tables métier et 9 tables techniques, périmètre détaillé assumé | `database/migrations` |
 | Factories et seeders | Factories par modèle + `DatabaseSeeder` | `database/factories`, `database/seeders` |
 | Module personnel | Calendrier cultural paramétrable et suivi des retards | `CropCalendarService`, `/agenda` |
@@ -766,7 +766,7 @@ La commande `php artisan system:health` réutilise le service avec une sortie li
 
 ## 10.7 Rentabilité, exports et mode hors ligne
 
-`ProfitabilityService` agrège par campagne, culture et parcelle les dépenses, recettes, marges, marge au m², rendements, volumes d'eau et budget consommé. L'écran `/rentabilite` accepte les filtres `from`, `to` et `campaign_id` ; `/rentabilite/impression` produit une vue imprimable. Les exports CSV (`campagnes`, `stocks`, `traitements`, `ventes`, `finances`, `rentabilite`) sont streamés en UTF-8 avec BOM, séparés par des points-virgules et protégés contre les formules de tableur.
+`ProfitabilityService` agrège par campagne, culture et parcelle les dépenses, recettes, marges, marge au m², rendements, volumes d'eau et budget consommé. Les rendements et stocks consolidés ne totalisent que les récoltes exprimées en kilogrammes ; les autres unités restent présentées séparément. L'écran `/rentabilite` accepte les filtres `from`, `to` et `campaign_id` ; `/rentabilite/impression` produit une vue imprimable. Les exports CSV (`campagnes`, `stocks`, `traitements`, `ventes`, `finances`, `rentabilite`) sont streamés en UTF-8 avec BOM, séparés par des points-virgules et protégés contre les formules de tableur.
 
 Le mode hors ligne repose sur un manifeste PWA, un service worker qui précache `offline.html` et les assets, une file `localStorage` par utilisateur pour les activités et récoltes, et des endpoints `/hors-ligne/activites` et `/hors-ligne/recoltes` idempotents grâce à `client_reference` et à l'index unique `(farm_id, client_reference)`. La synchronisation est relancée au retour du réseau, à l'ouverture de l'application et périodiquement ; les `422` sont des rejets de validation, les erreurs réseau ou `5xx` sont réessayées. Les pages authentifiées ne sont pas mises en cache par le service worker.
 
@@ -780,7 +780,7 @@ Désactiver l'inscription publique si nécessaire, restreindre `/admin` au rôle
 
 ## 11.1 Réalisations
 
-La version livrée apporte une architecture MVC claire avec services métier, 19 Policies, un rôle global d'administrateur de plateforme, un journal d'audit transversal avec purge planifiée, une isolation multi-exploitations à trois niveaux, un plan interactif avec contours GeoJSON restitués en 2D et 3D, l'irrigation et les quotas d'eau, les photos de parcelles, les alertes critiques de retard, la traçabilité publique par QR code, le calendrier cultural idempotent comme module personnel, les fiches de culture, une navigation lisible avec hub, une gestion de stock robuste, le blocage serveur des récoltes précoces, une chaîne commerciale complète, un tableau de bord mis en cache, une API REST sécurisée, une sauvegarde/restauration vérifiable, l'analyse de rentabilité, les exports CSV, la supervision `/health`, la PWA hors ligne et 170 tests automatisés.
+La version livrée apporte une architecture MVC claire avec services métier, 19 Policies, un rôle global d'administrateur de plateforme, un journal d'audit transversal avec purge planifiée, une isolation multi-exploitations à trois niveaux, un plan interactif avec contours GeoJSON restitués en 2D et 3D, l'irrigation et les quotas d'eau, les photos de parcelles, les alertes critiques de retard, la traçabilité publique par QR code, le calendrier cultural idempotent comme module personnel, les fiches de culture, une navigation lisible avec hub, une gestion de stock robuste, le blocage serveur des récoltes précoces, une chaîne commerciale complète, un tableau de bord mis en cache, une API REST sécurisée, une sauvegarde/restauration vérifiable, l'analyse de rentabilité, les exports CSV, la supervision `/health`, la PWA hors ligne et 209 tests automatisés.
 
 ## 11.2 Apports techniques
 

@@ -8,6 +8,10 @@
         ? '—'
         : number_format((float) $value, $decimals, ',', ' ');
     $marginClass = fn ($value): string => (float) $value >= 0 ? 'text-emerald-700' : 'text-red-600';
+    $unitsLabel = fn (array $units): string => collect($units)
+        ->except('kg')
+        ->map(fn ($quantity, $unit): string => $number($quantity, 1).' '.$unit)
+        ->implode(' · ');
 @endphp
 
 @section('content')
@@ -79,7 +83,13 @@
             <p class="mt-1 text-2xl font-semibold text-slate-800">
                 {{ $data['totals']['water_per_kg'] !== null ? $number($data['totals']['water_per_kg'], 3).' m³' : '—' }}
             </p>
-            <p class="text-xs text-slate-500">{{ $number($data['totals']['water_m3'], 1) }} m³ · {{ $number($data['totals']['harvest_kg'], 1) }} kg</p>
+            @php($otherTotals = $unitsLabel($data['totals']['harvest_units'] ?? []))
+            <p class="text-xs text-slate-500">
+                {{ $number($data['totals']['water_m3'], 1) }} m³ · {{ $number($data['totals']['harvest_kg'], 1) }} kg
+                @if ($otherTotals !== '')
+                    · {{ $otherTotals }}
+                @endif
+            </p>
         </x-card>
     </div>
 
@@ -114,7 +124,13 @@
                                     <td class="py-2 pr-4 text-right">{{ $money($row['revenues']) }}</td>
                                     <td class="py-2 pr-4 text-right font-semibold {{ $marginClass($row['margin']) }}">{{ $money($row['margin']) }}</td>
                                     <td class="py-2 pr-4 text-right">{{ $money($row['margin_per_m2'] ?? 0) }}</td>
-                                    <td class="py-2 pr-4 text-right">{{ $number($row['harvest_kg']) }} kg</td>
+                                    @php($otherUnits = $unitsLabel($row['harvest_units'] ?? []))
+                                    <td class="py-2 pr-4 text-right">
+                                        {{ $number($row['harvest_kg']) }} kg
+                                        @if ($otherUnits !== '')
+                                            <span class="block text-xs text-slate-500">{{ $otherUnits }}</span>
+                                        @endif
+                                    </td>
                                     <td class="py-2 pr-4 text-right">{{ $row['yield_kg_per_m2'] !== null ? $number($row['yield_kg_per_m2'], 2).' kg/m²' : '—' }}</td>
                                     <td class="py-2 text-right">{{ $row['water_per_kg'] !== null ? $number($row['water_per_kg'], 3).' m³' : '—' }}</td>
                                 </tr>
@@ -155,7 +171,13 @@
                                     <td class="py-2 pr-4 text-right">{{ $money($row['revenues']) }}</td>
                                     <td class="py-2 pr-4 text-right font-semibold {{ $marginClass($row['margin']) }}">{{ $money($row['margin']) }}</td>
                                     <td class="py-2 pr-4 text-right">{{ $money($row['margin_per_m2'] ?? 0) }}</td>
-                                    <td class="py-2 pr-4 text-right">{{ $number($row['harvest_kg']) }} kg</td>
+                                    @php($otherUnits = $unitsLabel($row['harvest_units'] ?? []))
+                                    <td class="py-2 pr-4 text-right">
+                                        {{ $number($row['harvest_kg']) }} kg
+                                        @if ($otherUnits !== '')
+                                            <span class="block text-xs text-slate-500">{{ $otherUnits }}</span>
+                                        @endif
+                                    </td>
                                     <td class="py-2 pr-4 text-right">{{ $row['yield_kg_per_m2'] !== null ? $number($row['yield_kg_per_m2'], 2).' kg/m²' : '—' }}</td>
                                     <td class="py-2 text-right">{{ $row['water_per_kg'] !== null ? $number($row['water_per_kg'], 3).' m³' : '—' }}</td>
                                 </tr>
@@ -199,7 +221,13 @@
                                     <td class="py-2 pr-4 text-right">{{ $money($row['expenses']) }}</td>
                                     <td class="py-2 pr-4 text-right">{{ $money($row['revenues']) }}</td>
                                     <td class="py-2 pr-4 text-right font-semibold {{ $marginClass($row['margin']) }}">{{ $money($row['margin']) }}</td>
-                                    <td class="py-2 pr-4 text-right">{{ $number($row['harvest_kg']) }} kg</td>
+                                    @php($otherUnits = $unitsLabel($row['harvest_units'] ?? []))
+                                    <td class="py-2 pr-4 text-right">
+                                        {{ $number($row['harvest_kg']) }} kg
+                                        @if ($otherUnits !== '')
+                                            <span class="block text-xs text-slate-500">{{ $otherUnits }}</span>
+                                        @endif
+                                    </td>
                                     <td class="py-2 pr-4 text-right">{{ $number($row['water_m3'], 1) }} m³</td>
                                     <td class="py-2 text-right">{{ $row['budget_usage_percent'] !== null ? $number($row['budget_usage_percent'], 1).' %' : '—' }}</td>
                                 </tr>

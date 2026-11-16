@@ -121,7 +121,7 @@ class CalendarController extends Controller
             foreach ($harvests as $harvest) {
                 $this->pushEvent($events, $harvest->harvested_at, [
                     'kind' => 'harvest',
-                    'label' => 'Récolte · '.number_format((float) $harvest->quantity, 1, ',', ' ').' kg',
+                    'label' => 'Récolte · '.number_format((float) $harvest->quantity, 1, ',', ' ').' '.$harvest->unit,
                     'meta' => $harvest->campaign?->name ?? 'Récolte',
                     'color' => 'amber',
                     'url' => route('harvests.show', $harvest),

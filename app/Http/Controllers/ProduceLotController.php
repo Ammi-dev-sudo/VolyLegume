@@ -41,7 +41,14 @@ class ProduceLotController extends Controller
             'lots' => $lots,
             'campaigns' => Campaign::query()->forFarm($this->farmId())->with('crop')->orderByDesc('start_date')->get(),
             'statuses' => collect(ProduceLotStatus::cases()),
-            'availableTotal' => (float) ProduceLot::query()->forFarm($this->farmId())->sum('available_quantity'),
+            'availableTotals' => ProduceLot::query()
+                ->forFarm($this->farmId())
+                ->selectRaw('unit, SUM(available_quantity) as total')
+                ->groupBy('unit')
+                ->pluck('total', 'unit')
+                ->map(fn ($total): float => round((float) $total, 3))
+                ->sortKeys()
+                ->all(),
         ]);
     }
 

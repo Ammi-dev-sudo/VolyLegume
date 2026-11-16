@@ -138,7 +138,8 @@ class DashboardService
             ->whereBetween('harvested_at', [$fromDate, $toDate])
             ->when($campaignId, fn ($query) => $query->where('campaign_id', $campaignId));
 
-        $harvestedQuantity = (float) (clone $harvestsQuery)->sum('quantity');
+        $kgHarvestsQuery = (clone $harvestsQuery)->where('unit', 'kg');
+        $harvestedQuantity = (float) (clone $kgHarvestsQuery)->sum('quantity');
         $harvestedCount = (clone $harvestsQuery)->count();
 
         $harvestUnits = (clone $harvestsQuery)
@@ -146,6 +147,7 @@ class DashboardService
             ->groupBy('unit')
             ->pluck('total', 'unit')
             ->map(fn ($total): float => round((float) $total, 2))
+            ->sortKeys()
             ->all();
 
         $productionByCrop = (clone $harvestsQuery)
@@ -164,7 +166,7 @@ class DashboardService
 
         $harvestedAreaM2 = (float) Campaign::query()->forFarm($farm->id)
             ->when($campaignId, fn ($query) => $query->whereKey($campaignId))
-            ->whereIn('id', (clone $harvestsQuery)->select('campaign_id'))
+            ->whereIn('id', (clone $kgHarvestsQuery)->select('campaign_id'))
             ->sum('cultivated_area_m2');
 
         $cropDistribution = Campaign::query()->forFarm($farm->id)
@@ -261,6 +263,7 @@ class DashboardService
         }
 
         $harvestRows = Harvest::query()->forFarm($farm->id)
+            ->where('unit', 'kg')
             ->whereBetween('harvested_at', [$chartStart, $toDate])
             ->when($campaignId, fn ($query) => $query->where('campaign_id', $campaignId))
             ->get(['harvested_at', 'quantity']);
@@ -269,6 +272,15 @@ class DashboardService
             $key = Carbon::parse($row->harvested_at)->format('Y-m');
             $harvestsByMonth[$key] = ($harvestsByMonth[$key] ?? 0) + (float) $row->quantity;
         }
+
+        $produceUnits = ProduceLot::query()->forFarm($farm->id)
+            ->available()
+            ->selectRaw('unit, SUM(available_quantity) as total')
+            ->groupBy('unit')
+            ->pluck('total', 'unit')
+            ->map(fn ($total): float => round((float) $total, 2))
+            ->sortKeys()
+            ->all();
 
         $activityRows = Activity::query()->forFarm($farm->id)
             ->where('status', '<>', ActivityStatus::Cancelled->value)
@@ -343,8 +355,8 @@ class DashboardService
             'yield_kg_per_ha' => $harvestedAreaM2 > 0
                 ? round($harvestedQuantity / ($harvestedAreaM2 / 10000), 1)
                 : null,
-            'produce_available' => (float) ProduceLot::query()->forFarm($farm->id)
-                ->sum('available_quantity'),
+            'produce_available' => (float) ($produceUnits['kg'] ?? 0.0),
+            'produce_units' => $produceUnits,
             'produce_lots_available' => ProduceLot::query()->forFarm($farm->id)
                 ->available()
                 ->count(),

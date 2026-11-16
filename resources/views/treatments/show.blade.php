@@ -33,7 +33,16 @@
                     </dd>
                 </div>
                 <div class="flex justify-between gap-4"><dt class="text-slate-500">Quantité consommée</dt>
-                    <dd>{{ number_format((float) $treatment->input?->quantity, 3, ',', ' ') }} {{ $treatment->input?->base_unit?->value }} en stock</dd>
+                    <dd>
+                        @if ($treatment->stockMovement)
+                            {{ number_format(abs((float) $treatment->stockMovement->quantity_delta), 3, ',', ' ').' '.$treatment->input?->base_unit?->value }}
+                        @else
+                            —
+                        @endif
+                    </dd>
+                </div>
+                <div class="flex justify-between gap-4"><dt class="text-slate-500">Stock actuel du produit</dt>
+                    <dd>{{ number_format((float) $treatment->input?->quantity, 3, ',', ' ') }} {{ $treatment->input?->base_unit?->value }}</dd>
                 </div>
                 <div class="flex justify-between gap-4"><dt class="text-slate-500">Dose</dt>
                     <dd>{{ $treatment->dose_value }} {{ $treatment->dose_unit }}</dd>

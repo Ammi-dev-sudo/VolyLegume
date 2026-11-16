@@ -71,14 +71,7 @@ class ProfitabilityService
             $campaignId,
         );
 
-        $harvests = $this->sumByCampaign(
-            Harvest::query()->forFarm($farm->id),
-            'harvested_at',
-            'quantity',
-            $from,
-            $to,
-            $campaignId,
-        );
+        $harvestsByCampaign = $this->harvestUnitsByCampaign($farm, $from, $to, $campaignId);
 
         $water = $this->sumByCampaign(
             IrrigationEvent::query()->forFarm($farm->id)->whereNotNull('campaign_id'),
@@ -89,11 +82,12 @@ class ProfitabilityService
             $campaignId,
         );
 
-        $rows = $campaigns->map(function (Campaign $campaign) use ($expenses, $revenues, $harvests, $water): array {
+        $rows = $campaigns->map(function (Campaign $campaign) use ($expenses, $revenues, $harvestsByCampaign, $water): array {
             $area = (float) $campaign->cultivated_area_m2;
             $expenseTotal = $expenses->get($campaign->id, 0.0);
             $revenueTotal = $revenues->get($campaign->id, 0.0);
-            $harvested = $harvests->get($campaign->id, 0.0);
+            $harvestUnits = $harvestsByCampaign->get($campaign->id, collect());
+            $harvested = (float) $harvestUnits->get('kg', 0.0);
             $waterVolume = $water->get($campaign->id, 0.0);
             $margin = $revenueTotal - $expenseTotal;
             $budget = $campaign->planned_budget !== null ? (float) $campaign->planned_budget : null;
@@ -112,6 +106,9 @@ class ProfitabilityService
                 'margin' => round($margin, 2),
                 'margin_per_m2' => $area > 0 ? round($margin / $area, 2) : null,
                 'harvest_kg' => round($harvested, 3),
+                'harvest_units' => $harvestUnits
+                    ->map(fn ($quantity): float => round((float) $quantity, 3))
+                    ->all(),
                 'yield_kg_per_m2' => $area > 0 ? round($harvested / $area, 3) : null,
                 'yield_kg_per_ha' => $area > 0 ? round($harvested / ($area / 10000), 1) : null,
                 'water_m3' => round($waterVolume, 3),
@@ -136,6 +133,32 @@ class ProfitabilityService
     }
 
     /**
+     * Quantités récoltées par campagne et par unité, sans additionner des
+     * unités incompatibles.
+     *
+     * @return Collection<int, Collection<string, float>>
+     */
+    private function harvestUnitsByCampaign(Farm $farm, ?string $from, ?string $to, ?int $campaignId): Collection
+    {
+        return Harvest::query()
+            ->forFarm($farm->id)
+            ->when($from, fn ($query) => $query->whereDate('harvested_at', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('harvested_at', '<=', $to))
+            ->when($campaignId, fn ($query) => $query->where('campaign_id', $campaignId))
+            ->selectRaw('campaign_id, unit, SUM(quantity) as aggregate')
+            ->groupBy('campaign_id', 'unit')
+            ->get()
+            ->groupBy('campaign_id')
+            ->mapWithKeys(fn (Collection $rows, int|string $campaignKey): array => [
+                (int) $campaignKey => $rows
+                    ->mapWithKeys(fn ($row): array => [
+                        (string) $row->unit => round((float) $row->aggregate, 3),
+                    ])
+                    ->sortKeys(),
+            ]);
+    }
+
+    /**
      * @param  \Illuminate\Database\Eloquent\Builder<*>  $query
      * @return Collection<int, float>
      */
@@ -152,6 +175,25 @@ class ProfitabilityService
     }
 
     /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array<string, float>
+     */
+    private function sumHarvestUnits(Collection $rows): array
+    {
+        $units = $rows->reduce(function (array $carry, array $row): array {
+            foreach ($row['harvest_units'] ?? [] as $unit => $quantity) {
+                $carry[$unit] = ($carry[$unit] ?? 0) + (float) $quantity;
+            }
+
+            return $carry;
+        }, []);
+
+        ksort($units);
+
+        return array_map(fn ($quantity): float => round((float) $quantity, 3), $units);
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $rows
      * @return list<array<string, mixed>>
      */
@@ -164,6 +206,7 @@ class ProfitabilityService
                 $expenses = (float) $group->sum('expenses');
                 $revenues = (float) $group->sum('revenues');
                 $harvest = (float) $group->sum('harvest_kg');
+                $harvestUnits = $this->sumHarvestUnits($group);
                 $water = (float) $group->sum('water_m3');
                 $margin = $revenues - $expenses;
 
@@ -176,6 +219,7 @@ class ProfitabilityService
                     'margin' => round($margin, 2),
                     'margin_per_m2' => $area > 0 ? round($margin / $area, 2) : null,
                     'harvest_kg' => round($harvest, 3),
+                    'harvest_units' => $harvestUnits,
                     'yield_kg_per_m2' => $area > 0 ? round($harvest / $area, 3) : null,
                     'yield_kg_per_ha' => $area > 0 ? round($harvest / ($area / 10000), 1) : null,
                     'water_m3' => round($water, 3),
@@ -197,6 +241,7 @@ class ProfitabilityService
         $expenses = (float) collect($rows)->sum('expenses');
         $revenues = (float) collect($rows)->sum('revenues');
         $harvest = (float) collect($rows)->sum('harvest_kg');
+        $harvestUnits = $this->sumHarvestUnits(collect($rows));
         $water = (float) collect($rows)->sum('water_m3');
         $margin = $revenues - $expenses;
 
@@ -208,6 +253,7 @@ class ProfitabilityService
             'margin' => round($margin, 2),
             'margin_per_m2' => $area > 0 ? round($margin / $area, 2) : null,
             'harvest_kg' => round($harvest, 3),
+            'harvest_units' => $harvestUnits,
             'yield_kg_per_m2' => $area > 0 ? round($harvest / $area, 3) : null,
             'yield_kg_per_ha' => $area > 0 ? round($harvest / ($area / 10000), 1) : null,
             'water_m3' => round($water, 3),

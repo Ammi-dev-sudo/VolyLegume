@@ -28,7 +28,10 @@
                 <div class="grid gap-4 sm:grid-cols-3">
                     <x-field name="quantity" label="Quantité récoltée" type="number" step="0.001" min="0.001" required
                              value="{{ old('quantity') }}" />
-                    <x-field name="unit" label="Unité" value="{{ old('unit') }}" placeholder="kg (par défaut culture)" />
+                    <x-select-field name="unit" label="Unité" :value="old('unit')"
+                                    :options="\App\Http\Requests\StoreHarvestRequest::UNITS"
+                                    placeholder="— Unité de la culture —"
+                                    hint="Choisissez une unité explicite pour les totaux et les rendements." />
                     <x-field name="harvested_at" label="Date et heure" type="datetime-local" required
                              value="{{ old('harvested_at', now()->format('Y-m-d\TH:i')) }}" />
                 </div>

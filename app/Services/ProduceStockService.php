@@ -26,28 +26,32 @@ class ProduceStockService
                 return $existing;
             }
 
+            $marketable = $harvest->marketableQuantity();
+
             $lot = ProduceLot::create([
                 'farm_id' => $harvest->farm_id,
                 'harvest_id' => $harvest->getKey(),
                 'campaign_id' => $harvest->campaign_id,
                 'code' => 'LOT-'.str_pad((string) $harvest->getKey(), 6, '0', STR_PAD_LEFT),
-                'initial_quantity' => $harvest->quantity,
-                'available_quantity' => $harvest->quantity,
+                'initial_quantity' => $marketable,
+                'available_quantity' => $marketable,
                 'unit' => $harvest->unit,
                 'quality' => $harvest->quality,
                 'harvested_at' => $harvest->harvested_at,
-                'status' => ProduceLotStatus::Available,
+                'status' => $marketable > 0 ? ProduceLotStatus::Available : ProduceLotStatus::Depleted,
                 'notes' => $harvest->notes,
             ]);
 
-            $lot->movements()->create([
-                'farm_id' => $harvest->farm_id,
-                'type' => ProduceMovementType::Harvest,
-                'quantity_delta' => $harvest->quantity,
-                'reason' => 'Entrée automatique depuis la récolte #'.$harvest->getKey(),
-                'occurred_at' => $harvest->harvested_at,
-                'created_by' => $actor->id,
-            ]);
+            if ($marketable > 0) {
+                $lot->movements()->create([
+                    'farm_id' => $harvest->farm_id,
+                    'type' => ProduceMovementType::Harvest,
+                    'quantity_delta' => $marketable,
+                    'reason' => 'Entrée automatique depuis la récolte #'.$harvest->getKey(),
+                    'occurred_at' => $harvest->harvested_at,
+                    'created_by' => $actor->id,
+                ]);
+            }
 
             DashboardCache::forget($harvest->farm);
 

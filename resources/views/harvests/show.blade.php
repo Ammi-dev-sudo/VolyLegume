@@ -74,6 +74,9 @@
                 <div class="flex justify-between gap-4"><dt class="text-slate-500">Pertes déclarées</dt>
                     <dd>{{ number_format((float) $harvest->loss_quantity, 2, ',', ' ') }} {{ $harvest->unit }}</dd>
                 </div>
+                <div class="flex justify-between gap-4"><dt class="text-slate-500">Quantité commercialisable</dt>
+                    <dd class="font-medium">{{ number_format($harvest->marketableQuantity(), 3, ',', ' ') }} {{ $harvest->unit }}</dd>
+                </div>
                 <div class="flex justify-between gap-4"><dt class="text-slate-500">Enregistrée par</dt>
                     <dd>{{ $harvest->recordedBy?->name ?? '—' }}</dd>
                 </div>

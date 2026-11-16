@@ -166,6 +166,7 @@ class CampaignController extends Controller
         $parcel = ProductionUnit::query()->forFarm($farmId)->findOrFail($validated['production_unit_id']);
 
         $limitArea = (float) $parcel->area_m2;
+        $zone = null;
 
         if (! empty($validated['production_unit_zone_id'])) {
             $zone = ProductionUnitZone::query()->forFarm($farmId)->findOrFail($validated['production_unit_zone_id']);
@@ -183,6 +184,28 @@ class CampaignController extends Controller
             throw ValidationException::withMessages([
                 'cultivated_area_m2' => 'La superficie cultivée ne peut pas dépasser la surface disponible (parcelle ou zone).',
             ]);
+        }
+
+        if (in_array($validated['status'], [CampaignStatus::Planned->value, CampaignStatus::Ongoing->value], true)) {
+            $occupied = (float) Campaign::query()
+                ->forFarm($farmId)
+                ->when($campaign !== null, fn ($query) => $query->whereKeyNot($campaign->getKey()))
+                ->whereIn('status', [CampaignStatus::Planned->value, CampaignStatus::Ongoing->value])
+                ->where('production_unit_id', $parcel->id)
+                ->when($zone !== null, fn ($query) => $query->where('production_unit_zone_id', $zone->id))
+                ->whereDate('start_date', '<=', $validated['expected_end_date'])
+                ->whereDate('expected_end_date', '>=', $validated['start_date'])
+                ->sum('cultivated_area_m2');
+
+            $remaining = max(0, $limitArea - $occupied);
+
+            if ($occupied + (float) $validated['cultivated_area_m2'] > $limitArea + 0.009) {
+                throw ValidationException::withMessages([
+                    'cultivated_area_m2' => 'Superficie insuffisante sur cette période : '
+                        .number_format($remaining, 2, ',', ' ').' m² encore disponibles sur '
+                        .number_format($limitArea, 2, ',', ' ').' m².',
+                ]);
+            }
         }
 
         return $validated;

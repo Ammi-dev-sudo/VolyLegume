@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class FarmController extends Controller
@@ -113,6 +114,15 @@ class FarmController extends Controller
             'manager_id.exists' => 'Le responsable doit être un membre actif avec le rôle Responsable.',
         ]);
 
+        $parcelsArea = (float) $farm->productionUnits()->sum('area_m2');
+
+        if ((float) $validated['area_m2'] + 0.009 < $parcelsArea) {
+            throw ValidationException::withMessages([
+                'area_m2' => 'La superficie de l’exploitation ne peut pas être inférieure à la somme des parcelles ('
+                    .number_format($parcelsArea, 2, ',', ' ').' m²).',
+            ]);
+        }
+
         $farm->update($validated);
 
         return redirect()->route('farms.index')
@@ -121,6 +131,20 @@ class FarmController extends Controller
 
     public function switch(Request $request, Farm $farm): RedirectResponse
     {
+        $membership = $request->user()->memberships()
+            ->where('farm_id', $farm->id)
+            ->where('is_active', true)
+            ->first();
+
+        if ($membership === null) {
+            abort(404);
+        }
+
+        if (! $farm->isActive()) {
+            return redirect()->route('farms.index')
+                ->withErrors(['farm' => 'Cette exploitation est désactivée et ne peut pas être sélectionnée.']);
+        }
+
         $request->session()->put('active_farm_id', $farm->id);
 
         return redirect()->route('dashboard')

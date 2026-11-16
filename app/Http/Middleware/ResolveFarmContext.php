@@ -26,7 +26,7 @@ class ResolveFarmContext
                 ->where('is_active', true)
                 ->with('farm')
                 ->get()
-                ->filter(fn ($membership) => $membership->farm !== null);
+                ->filter(fn ($membership) => $membership->farm !== null && $membership->farm->isActive());
 
             $requestedId = $request->session()->get('active_farm_id');
 

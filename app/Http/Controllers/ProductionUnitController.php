@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ProductionUnitController extends Controller
@@ -56,8 +57,15 @@ class ProductionUnitController extends Controller
             'width_m' => ['nullable', 'numeric', 'gt:0'],
             'location' => ['required', 'string', 'max:255'],
             'status' => ['required', Rule::enum(ProductionUnitStatus::class)],
+            'soil_type' => ['nullable', 'string', 'max:60'],
+            'irrigation_type' => ['nullable', 'string', 'max:60'],
+            'sun_exposure' => ['nullable', 'string', 'max:40'],
+            'slope' => ['nullable', 'string', 'max:40'],
+            'notes' => ['nullable', 'string', 'max:2000'],
             'photo' => ['nullable', 'image', 'max:5120'],
         ]);
+
+        $this->assertParcelFitsFarm((float) $validated['area_m2']);
 
         $photoPath = null;
         if ($request->hasFile('photo')) {
@@ -118,15 +126,25 @@ class ProductionUnitController extends Controller
             ->limit(10)
             ->get();
 
+        $harvestQuery = Harvest::query()
+            ->forFarm($this->farmId())
+            ->whereIn('campaign_id', $campaignIds);
+
+        $harvestUnits = (clone $harvestQuery)
+            ->selectRaw('unit, SUM(quantity) as total')
+            ->groupBy('unit')
+            ->pluck('total', 'unit')
+            ->map(fn ($total): float => round((float) $total, 2))
+            ->sortKeys()
+            ->all();
+
         $stats = [
             'campaigns' => $campaigns->count(),
             'active_campaigns' => $campaigns->filter(
                 fn ($campaign): bool => in_array($campaign->status, [CampaignStatus::Planned, CampaignStatus::Ongoing], true),
             )->count(),
-            'harvest_quantity' => (float) Harvest::query()
-                ->forFarm($this->farmId())
-                ->whereIn('campaign_id', $campaignIds)
-                ->sum('quantity'),
+            'harvest_quantity' => (float) ($harvestUnits['kg'] ?? 0.0),
+            'harvest_units' => $harvestUnits,
             'irrigation_volume' => (float) $productionUnit->irrigationEvents()->sum('volume_m3'),
         ];
 
@@ -163,9 +181,17 @@ class ProductionUnitController extends Controller
             'width_m' => ['nullable', 'numeric', 'gt:0'],
             'location' => ['required', 'string', 'max:255'],
             'status' => ['required', Rule::enum(ProductionUnitStatus::class)],
+            'soil_type' => ['nullable', 'string', 'max:60'],
+            'irrigation_type' => ['nullable', 'string', 'max:60'],
+            'sun_exposure' => ['nullable', 'string', 'max:40'],
+            'slope' => ['nullable', 'string', 'max:40'],
+            'notes' => ['nullable', 'string', 'max:2000'],
             'photo' => ['nullable', 'image', 'max:5120'],
             'remove_photo' => ['nullable', 'boolean'],
         ]);
+
+        $this->assertParcelFitsFarm((float) $validated['area_m2'], $productionUnit);
+        $this->assertParcelCoversZones($productionUnit, (float) $validated['area_m2']);
 
         if ($request->boolean('remove_photo') && $productionUnit->photo_path) {
             $photos->delete($productionUnit->photo_path);
@@ -242,7 +268,10 @@ class ProductionUnitController extends Controller
         $attributes = ['boundary' => $boundary];
 
         if ($request->boolean('update_area')) {
-            $attributes['area_m2'] = max(0.01, round($area, 2));
+            $computedArea = max(0.01, round($area, 2));
+            $this->assertParcelFitsFarm($computedArea, $productionUnit);
+            $this->assertParcelCoversZones($productionUnit, $computedArea);
+            $attributes['area_m2'] = $computedArea;
         }
 
         if ($productionUnit->latitude === null || $productionUnit->longitude === null) {
@@ -258,6 +287,43 @@ class ProductionUnitController extends Controller
 
         return redirect()->route('production-units.boundary.edit', $productionUnit)
             ->with('status', 'Contour enregistré.');
+    }
+
+    private function assertParcelFitsFarm(float $area, ?ProductionUnit $productionUnit = null): void
+    {
+        if ($productionUnit !== null && $area <= (float) $productionUnit->area_m2) {
+            return;
+        }
+
+        $used = (float) ProductionUnit::query()
+            ->forFarm($this->farmId())
+            ->when($productionUnit !== null, fn ($query) => $query->whereKeyNot($productionUnit->getKey()))
+            ->sum('area_m2');
+
+        $limit = (float) $this->farm()->area_m2;
+
+        if ($used + $area > $limit + 0.009) {
+            throw ValidationException::withMessages([
+                'area_m2' => 'La somme des parcelles ne peut pas dépasser la superficie de l’exploitation ('
+                    .number_format($limit, 2, ',', ' ').' m²).',
+            ]);
+        }
+    }
+
+    private function assertParcelCoversZones(ProductionUnit $productionUnit, float $area): void
+    {
+        if ($area >= (float) $productionUnit->area_m2) {
+            return;
+        }
+
+        $zonesArea = (float) $productionUnit->zones()->sum('area_m2');
+
+        if ($area + 0.009 < $zonesArea) {
+            throw ValidationException::withMessages([
+                'area_m2' => 'La superficie de la parcelle ne peut pas être inférieure à la somme de ses zones ('
+                    .number_format($zonesArea, 2, ',', ' ').' m²).',
+            ]);
+        }
     }
 
     public function destroy(ProductionUnit $productionUnit): RedirectResponse

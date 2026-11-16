@@ -154,10 +154,21 @@
             </p>
             <p class="text-xs text-slate-500">{{ $metrics['late_activities'] }} en retard</p>
         </x-card>
+        @php
+            $otherHarvestUnits = collect($metrics['harvest_units'])
+                ->except('kg')
+                ->map(fn ($quantity, $unit): string => number_format((float) $quantity, 1, ',', ' ').' '.$unit)
+                ->implode(' · ');
+        @endphp
         <x-card>
-            <p class="text-xs uppercase text-slate-500">Récolte cumulée</p>
-            <p class="mt-1 text-lg font-semibold">{{ number_format((float) $metrics['harvested_quantity'], 1, ',', ' ') }}</p>
-            <p class="text-xs text-slate-500">{{ $campaign->crop?->production_unit }}</p>
+            <p class="text-xs uppercase text-slate-500">Récolte cumulée (kg)</p>
+            <p class="mt-1 text-lg font-semibold">{{ number_format((float) $metrics['harvested_quantity'], 1, ',', ' ') }} kg</p>
+            <p class="text-xs text-slate-500">
+                {{ $campaign->crop?->production_unit }}
+                @if ($otherHarvestUnits !== '')
+                    · {{ $otherHarvestUnits }}
+                @endif
+            </p>
         </x-card>
         <x-card>
             <p class="text-xs uppercase text-slate-500">Eau utilisée</p>

@@ -66,6 +66,7 @@ class ProfitabilityController extends Controller
                 'Marge (Ar)',
                 'Marge / m² (Ar)',
                 'Récolte (kg)',
+                'Autres récoltes',
                 'Rendement (kg/m²)',
                 'Rendement (kg/ha)',
                 'Eau (m³)',
@@ -85,6 +86,10 @@ class ProfitabilityController extends Controller
                 $row['margin'],
                 $row['margin_per_m2'],
                 $row['harvest_kg'],
+                collect($row['harvest_units'])
+                    ->except('kg')
+                    ->map(fn ($quantity, $unit): string => number_format((float) $quantity, 3, ',', ' ').' '.$unit)
+                    ->implode(' · '),
                 $row['yield_kg_per_m2'],
                 $row['yield_kg_per_ha'],
                 $row['water_m3'],

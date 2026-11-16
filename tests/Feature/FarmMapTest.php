@@ -204,7 +204,7 @@ class FarmMapTest extends TestCase
 
     public function test_un_responsable_peut_enregistrer_un_contour(): void
     {
-        $farm = $this->createFarm();
+        $farm = $this->createFarm(['area_m2' => 10000]);
         $unit = ProductionUnit::factory()->create([
             'farm_id' => $farm->id,
             'latitude' => null,

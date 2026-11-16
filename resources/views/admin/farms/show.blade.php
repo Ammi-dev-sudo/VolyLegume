@@ -13,7 +13,8 @@
                 {{ $farm->status->label() }}
             </span>
         </div>
-        <form method="POST" action="{{ route('admin.farms.status', $farm->id) }}">
+        <form method="POST" action="{{ route('admin.farms.status', $farm->id) }}"
+              onsubmit="return confirm('{{ $farm->isActive() ? 'Désactiver' : 'Activer' }} cette exploitation ? Les membres perdront ou retrouveront l’accès aux données métier.');">
             @csrf
             @method('PATCH')
             <button type="submit" class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">

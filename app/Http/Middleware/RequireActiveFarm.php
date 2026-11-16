@@ -21,6 +21,16 @@ class RequireActiveFarm
                 abort(403, 'Aucune exploitation active pour ce compte.');
             }
 
+            $hasMembership = $request->user()?->memberships()
+                ->where('is_active', true)
+                ->exists() ?? false;
+
+            if ($hasMembership) {
+                return redirect()
+                    ->route('farms.index')
+                    ->withErrors(['farm' => 'Votre exploitation est désactivée. Contactez un administrateur pour la réactiver.']);
+            }
+
             return redirect()
                 ->route('farms.create')
                 ->with('status', 'Créez ou rejoignez une exploitation pour accéder à cette page.');

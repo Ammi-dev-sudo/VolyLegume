@@ -104,6 +104,7 @@ class ReportService
                 'quantity' => round((float) $rows->sum('quantity'), 2),
                 'count' => $rows->count(),
             ])
+            ->sortBy('unit')
             ->values()
             ->all();
 
@@ -127,7 +128,7 @@ class ReportService
                 'campaigns' => $campaigns->count(),
                 'active_campaigns' => $campaigns->filter(fn (Campaign $campaign): bool => $campaign->status->isActive())->count(),
                 'cultivated_area_m2' => round((float) $campaigns->sum('cultivated_area_m2'), 2),
-                'harvested_quantity' => round((float) $harvests->sum('quantity'), 2),
+                'harvested_quantity' => round((float) $harvests->where('unit', 'kg')->sum('quantity'), 2),
                 'harvest_count' => $harvests->count(),
                 'treatments' => $treatments->count(),
                 'issues' => $issues->count(),
@@ -158,13 +159,24 @@ class ReportService
             ['Campagnes', $summary['campaigns']],
             ['Campagnes actives', $summary['active_campaigns']],
             ['Surface cultivée (m²)', $summary['cultivated_area_m2']],
-            ['Quantité récoltée', $summary['harvested_quantity']],
+            ['Quantité récoltée (kg)', $summary['harvested_quantity']],
             ['Récoltes saisies', $summary['harvest_count']],
             ['Traitements', $summary['treatments']],
             ['Problèmes signalés', $summary['issues']],
             ['Problèmes non résolus', $summary['open_issues']],
             ['Problèmes critiques', $summary['critical_issues']],
         ];
+
+        foreach ($report['harvests_by_unit'] as $harvestUnit) {
+            if ($harvestUnit['unit'] === 'kg') {
+                continue;
+            }
+
+            $summaryRows[] = [
+                'Récolte ('.$harvestUnit['unit'].')',
+                $harvestUnit['quantity'],
+            ];
+        }
 
         if ($report['include_finances']) {
             $summaryRows[] = ['Dépenses (Ar)', $summary['expenses']];

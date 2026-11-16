@@ -64,4 +64,9 @@ class Harvest extends Model
     {
         return $this->hasOne(ProduceLot::class);
     }
+
+    public function marketableQuantity(): float
+    {
+        return max(0, (float) $this->quantity - (float) $this->loss_quantity);
+    }
 }

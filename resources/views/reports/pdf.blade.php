@@ -55,6 +55,13 @@
         </table>
     </div>
 
+    @php
+        $harvestUnitSummary = collect($report['harvests_by_unit'])
+            ->reject(fn (array $unit): bool => $unit['unit'] === 'kg')
+            ->map(fn (array $unit): string => number_format((float) $unit['quantity'], 1, ',', ' ').' '.$unit['unit'])
+            ->implode(' · ');
+    @endphp
+
     <table class="kpis">
         <tr>
             <td>
@@ -68,9 +75,9 @@
                 <span class="hint">Sur les campagnes de la période</span>
             </td>
             <td>
-                <span class="label">Récoltes</span>
-                <span class="value">{{ number_format((float) $report['summary']['harvested_quantity'], 1, ',', ' ') }}</span>
-                <span class="hint">{{ $report['summary']['harvest_count'] }} saisie(s)</span>
+                <span class="label">Récoltes (kg)</span>
+                <span class="value">{{ number_format((float) $report['summary']['harvested_quantity'], 1, ',', ' ') }} kg</span>
+                <span class="hint">{{ $report['summary']['harvest_count'] }} saisie(s){{ $harvestUnitSummary !== '' ? ' · '.$harvestUnitSummary : '' }}</span>
             </td>
             <td>
                 <span class="label">Problèmes</span>
@@ -88,7 +95,8 @@
 
     @if ($canViewFinances)
         <h2>Synthèse financière</h2>
-        <table class="kpis">
+
+    <table class="kpis">
             <tr>
                 <td>
                     <span class="label">Dépenses</span>

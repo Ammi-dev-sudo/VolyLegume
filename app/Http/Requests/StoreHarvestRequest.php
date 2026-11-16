@@ -11,6 +11,19 @@ use Illuminate\Validation\Rule;
  */
 class StoreHarvestRequest extends FormRequest
 {
+    /** @var array<string, string> */
+    public const UNITS = [
+        'kg' => 'kilogramme (kg)',
+        'g' => 'gramme (g)',
+        't' => 'tonne (t)',
+        'L' => 'litre (L)',
+        'mL' => 'millilitre (mL)',
+        'piece' => 'pièce',
+        'botte' => 'botte',
+        'sac' => 'sac',
+        'caisse' => 'caisse',
+    ];
+
     public function authorize(): bool
     {
         return $this->user() !== null && app(FarmContext::class)->farm() !== null;
@@ -27,7 +40,7 @@ class StoreHarvestRequest extends FormRequest
             'client_reference' => ['nullable', 'string', 'max:64'],
             'campaign_id' => ['required', Rule::exists('campaigns', 'id')->where('farm_id', $farmId)],
             'quantity' => ['required', 'numeric', 'gt:0'],
-            'unit' => ['nullable', 'string', 'max:20'],
+            'unit' => ['nullable', Rule::in(array_keys(self::UNITS))],
             'harvested_at' => ['required', 'date', 'before_or_equal:now'],
             'quality' => ['nullable', 'string', 'max:50'],
             'grade' => ['nullable', 'string', 'max:40'],

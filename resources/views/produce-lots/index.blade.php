@@ -23,10 +23,14 @@
     <div class="mb-4 grid gap-4 sm:grid-cols-3">
         <x-card>
             <p class="text-xs uppercase tracking-wide text-slate-500">Stock disponible</p>
-            <p class="mt-1 text-2xl font-semibold text-emerald-700">
-                {{ number_format($availableTotal, 1, ',', ' ') }} kg
-            </p>
-            <p class="text-xs text-slate-500">Tous lots confondus</p>
+            @forelse ($availableTotals as $unit => $total)
+                <p class="mt-1 text-2xl font-semibold text-emerald-700">
+                    {{ number_format($total, 3, ',', ' ') }} {{ $unit }}
+                </p>
+            @empty
+                <p class="mt-1 text-2xl font-semibold text-emerald-700">0</p>
+            @endforelse
+            <p class="text-xs text-slate-500">Tous lots confondus, par unité</p>
         </x-card>
         <x-card>
             <p class="text-xs uppercase tracking-wide text-slate-500">Lots affichés</p>
