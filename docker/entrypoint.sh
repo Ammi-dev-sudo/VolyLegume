@@ -51,6 +51,10 @@ if [ "${SEED_DATABASE:-false}" = "true" ]; then
     fi
 fi
 
+if [ "${SEED_OPERATIONAL_DEMO:-false}" = "true" ]; then
+    php artisan demo:populate-operations "Ferme Ambohipo" --force
+fi
+
 php artisan app:create-admin-user
 
 php artisan config:cache

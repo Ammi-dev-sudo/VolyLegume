@@ -228,6 +228,19 @@
         transform: none;
     }
 
+    .water-bar {
+        height: var(--water-height);
+        transform: scaleY(0.08);
+        transform-origin: bottom;
+        animation: water-fill 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes water-fill {
+        to {
+            transform: scaleY(1);
+        }
+    }
+
     .skeleton {
         background-image: linear-gradient(
             90deg,
@@ -1923,6 +1936,12 @@ body.workspace-body .workspace-main [data-reveal-group] > .spotlight-card:nth-ch
     transition: background-color 0.16s ease;
 }
 
+.workspace-main tbody tr,
+.trace-main tbody tr {
+    animation: row-arrive 0.38s ease-out both;
+    animation-delay: var(--row-animation-delay, 0ms);
+}
+
 .workspace-main tbody tr:hover,
 .workspace-main tbody tr:focus-within {
     background-color: var(--surface-soft) !important;
@@ -2409,6 +2428,15 @@ body.workspace-body .workspace-main [data-reveal-group] > .spotlight-card:nth-ch
     to {
         opacity: 1;
         transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes row-arrive {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
     }
 }
 
@@ -3523,6 +3551,11 @@ body.workspace-body .workspace-main [data-reveal-group] > .spotlight-card:nth-ch
     .reveal {
         opacity: 1;
         transform: none;
+    }
+
+    .workspace-main tbody tr,
+    .trace-main tbody tr {
+        animation-delay: 0ms !important;
     }
 
     .nav-progress,

@@ -83,6 +83,17 @@ function initCounters() {
 }
 
 /**
+ * Décale légèrement les lignes des tableaux pour faciliter leur lecture.
+ */
+function initTableRowAnimations() {
+    document.querySelectorAll('.workspace-main tbody, .trace-main tbody').forEach((body) => {
+        [...body.rows].forEach((row, index) => {
+            row.style.setProperty('--row-animation-delay', `${Math.min(index, 12) * 28}ms`);
+        });
+    });
+}
+
+/**
  * Révèle les éléments marqués [data-reveal] lorsqu'ils entrent dans l'écran.
  * Les enfants d'un [data-reveal-group] sont décalés pour un effet d'escalier.
  */
@@ -2839,6 +2850,7 @@ function init() {
     initTheme();
     initServiceWorker();
     initOffline();
+    initTableRowAnimations();
     initReveal();
     initCounters();
     initNavigation();

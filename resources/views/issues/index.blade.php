@@ -18,18 +18,26 @@
 @endphp
 
 @section('content')
-    <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-            <h1 class="text-xl font-semibold text-slate-800">Problèmes agricoles</h1>
-            <p class="text-sm text-slate-500">Maladies, nuisibles, carences et alertes de terrain, avec suivi des interventions.</p>
+    <section class="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-emerald-950 to-amber-900 px-5 py-6 text-white shadow-xl shadow-slate-950/15 animate-fade-in-down sm:px-8 sm:py-8">
+        <div aria-hidden="true" class="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl animate-blob"></div>
+        <div aria-hidden="true" class="pointer-events-none absolute -bottom-24 left-1/4 h-56 w-56 rounded-full bg-rose-300/15 blur-3xl animate-blob" style="animation-delay: -7s"></div>
+        <div class="relative flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <p class="animate-fade-in-up text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/75">Observations de terrain</p>
+                <h1 class="mt-2 animate-fade-in-up text-2xl font-bold sm:text-3xl" style="animation-delay: 70ms">Problèmes agricoles</h1>
+                <p class="mt-2 animate-fade-in-up text-sm text-emerald-50/80" style="animation-delay: 140ms">Suivez les observations, leur gravité et leur résolution au fil des visites.</p>
+            </div>
+            @can('create', \App\Models\CropIssue::class)
+                <a href="{{ route('issues.create') }}" class="btn-shine relative rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-emerald-900 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl">+ Signaler un problème</a>
+            @endcan
         </div>
-        @can('create', \App\Models\CropIssue::class)
-            <a href="{{ route('issues.create') }}"
-               class="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                Signaler un problème
-            </a>
-        @endcan
-    </div>
+        @if ($summary['critical'] > 0)
+            <div class="relative mt-5 inline-flex animate-fade-in-up items-center gap-2 rounded-xl border border-rose-200/30 bg-rose-400/15 px-3 py-2 text-sm text-rose-50" role="status" style="animation-delay: 210ms">
+                <span class="h-2 w-2 rounded-full bg-rose-300 animate-pulse-soft"></span>
+                {{ $summary['critical'] }} problème(s) critique(s) demandent une attention prioritaire.
+            </div>
+        @endif
+    </section>
 
     <div class="dashboard-grid mb-5" data-reveal-group="40">
         <x-stat-card label="Problèmes ouverts" :value="$summary['open']" :count="$summary['open']" hint="Non résolus" />
@@ -38,7 +46,7 @@
         <x-stat-card label="Total" :value="$summary['total']" :count="$summary['total']" hint="Toutes périodes" />
     </div>
 
-    <form method="GET" action="{{ route('issues.index') }}" class="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
+    <form method="GET" action="{{ route('issues.index') }}" data-reveal class="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
         <div>
             <label for="f-status" class="block text-xs font-medium text-slate-600">Statut</label>
             <select id="f-status" name="status" class="mt-1 rounded border border-slate-300 px-2 py-1.5">
@@ -112,7 +120,7 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @foreach ($issues as $issue)
-                            <tr class="align-top">
+                            <tr data-reveal class="align-top transition-colors duration-200 hover:bg-emerald-50/60">
                                 <td class="py-2 pr-4 font-mono text-xs">{{ $issue->reference }}</td>
                                 <td class="py-2 pr-4">
                                     <a href="{{ route('issues.show', $issue) }}" class="font-medium text-emerald-700 hover:underline">
