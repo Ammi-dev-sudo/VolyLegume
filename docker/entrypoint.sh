@@ -51,7 +51,7 @@ if [ "${SEED_DATABASE:-false}" = "true" ]; then
     fi
 fi
 
-if [ "${SEED_OPERATIONAL_DEMO:-false}" = "true" ]; then
+if [ "${APP_ENV:-}" = "production" ]; then
     php artisan demo:populate-operations "Ferme Ambohipo" --force
 fi
 
