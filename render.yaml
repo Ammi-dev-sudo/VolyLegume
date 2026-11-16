@@ -62,17 +62,12 @@ services:
       - key: AWS_ENDPOINT
         sync: false
       - key: SEED_DATABASE
-        value: true
-      # Mot de passe des comptes de démonstration. À remplacer pour un
-      # déploiement réel exposé publiquement.
-      - key: DEMO_PASSWORD
-        value: password
+        value: false
       - key: ADMIN_EMAIL
         value: admin@volylegume.mg
       - key: ADMIN_NAME
         value: Administrateur VolyLegume
-      # Optionnel : s'il est absent, le mot de passe admin reprend
-      # DEMO_PASSWORD. Le compte est créé au démarrage du conteneur.
+      # Définir ce secret avant le premier déploiement public.
       - key: ADMIN_PASSWORD
         sync: false
       - key: HEALTH_TOKEN

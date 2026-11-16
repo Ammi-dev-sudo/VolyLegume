@@ -6,6 +6,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -33,15 +34,25 @@ class PhotoStorage
         $optimized = $this->optimize($file);
 
         if ($optimized === null) {
-            return $file->storePublicly($directory, $this->diskName());
+            $path = $file->storePublicly($directory, $this->diskName());
+
+            if (! is_string($path) || $path === '') {
+                throw new RuntimeException('La photo n’a pas pu être enregistrée. Vérifiez la configuration du stockage.');
+            }
+
+            return $path;
         }
 
         $path = trim($directory, '/').'/'.$optimized['name'];
 
-        $this->disk()->put($path, $optimized['contents'], [
+        $stored = $this->disk()->put($path, $optimized['contents'], [
             'visibility' => 'public',
             'ContentType' => $optimized['mime'],
         ]);
+
+        if (! $stored) {
+            throw new RuntimeException('La photo n’a pas pu être enregistrée. Vérifiez la configuration du stockage.');
+        }
 
         return $path;
     }
