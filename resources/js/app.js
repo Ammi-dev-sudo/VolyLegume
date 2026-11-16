@@ -94,6 +94,52 @@ function initTableRowAnimations() {
 }
 
 /**
+ * Étend les apparitions au défilement à toutes les pages de l'application.
+ */
+function initPageReveal() {
+    const selectors = [
+        '.workspace-main > *',
+        '.workspace-main section',
+        '.workspace-main .dashboard-grid > *',
+        '.workspace-main .spotlight-card',
+        '.workspace-main .resource-card',
+        '.workspace-main form',
+        '.trace-main > *',
+        '.trace-main section',
+        '.trace-main .spotlight-card',
+        '.guest-story',
+        '.guest-form-card',
+    ];
+    const targets = new Set(document.querySelectorAll(selectors.join(', ')));
+    const siblingsByParent = new Map();
+
+    targets.forEach((element) => {
+        element.dataset.reveal = '';
+
+        const siblings = siblingsByParent.get(element.parentElement) ?? [];
+        siblings.push(element);
+        siblingsByParent.set(element.parentElement, siblings);
+    });
+
+    siblingsByParent.forEach((siblings, parent) => {
+        if (siblings.length > 1 && !parent.hasAttribute('data-reveal-group')) {
+            parent.dataset.revealGroup = '55';
+        }
+    });
+}
+
+/**
+ * Ajoute un retour visuel cohérent aux boutons et actions des différentes pages.
+ */
+function initInteractiveMotion() {
+    document.querySelectorAll('.workspace-main button, .workspace-main a.rounded, .trace-main button, .trace-main a.rounded, .guest-form-card button').forEach((control) => {
+        if (!control.closest('.farm-map-stage, .leaflet-container')) {
+            control.classList.add('motion-control');
+        }
+    });
+}
+
+/**
  * Révèle les éléments marqués [data-reveal] lorsqu'ils entrent dans l'écran.
  * Les enfants d'un [data-reveal-group] sont décalés pour un effet d'escalier.
  */
@@ -2851,7 +2897,9 @@ function init() {
     initServiceWorker();
     initOffline();
     initTableRowAnimations();
+    initPageReveal();
     initReveal();
+    initInteractiveMotion();
     initCounters();
     initNavigation();
     initScrollProgress();

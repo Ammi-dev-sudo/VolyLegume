@@ -217,15 +217,37 @@
     /* Apparition au défilement. */
     .reveal {
         opacity: 0;
-        transform: translate3d(0, 14px, 0);
+        transform: translate3d(0, 22px, 0) scale(0.99);
         transition:
-            opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-            transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            opacity 0.62s cubic-bezier(0.22, 1, 0.36, 1),
+            transform 0.62s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .reveal.is-visible {
         opacity: 1;
         transform: none;
+    }
+
+    .motion-control {
+        transform: translateY(0) scale(1);
+        transition:
+            transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+            box-shadow 0.22s ease,
+            filter 0.22s ease;
+    }
+
+    .motion-control:active {
+        transform: translateY(0) scale(0.97) !important;
+    }
+
+    .workspace-main figure img,
+    .trace-main figure img {
+        transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .workspace-main figure:hover img,
+    .trace-main figure:hover img {
+        transform: scale(1.045);
     }
 
     .water-bar {
@@ -1826,9 +1848,17 @@ body.workspace-body .workspace-main .spotlight-card:has(table) {
 
 .workspace-main .spotlight-card:hover,
 .workspace-main [class*='rounded-2xl'][class*='border'][class*='bg-white']:hover {
-    transform: translateY(-2px);
+    transform: translateY(-4px) scale(1.006);
     border-color: var(--line-strong) !important;
     box-shadow: var(--shadow-md) !important;
+}
+
+.workspace-main .spotlight-card,
+.workspace-main [class*='rounded-2xl'][class*='border'][class*='bg-white'] {
+    transition:
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        border-color 0.24s ease,
+        box-shadow 0.28s ease;
 }
 
 .workspace-main .spotlight-card::before,
@@ -2438,6 +2468,35 @@ body.workspace-body .workspace-main [data-reveal-group] > .spotlight-card:nth-ch
     to {
         opacity: 1;
     }
+}
+
+.workspace-main .motion-control:hover,
+.trace-main .motion-control:hover,
+.guest-form-card .motion-control:hover {
+    transform: translateY(-2px) scale(1.02) !important;
+    filter: saturate(1.08);
+}
+
+.workspace-main .motion-control:active,
+.trace-main .motion-control:active,
+.guest-form-card .motion-control:active {
+    transform: translateY(0) scale(0.97) !important;
+}
+
+.workspace-main .spotlight-card:focus-within,
+.trace-main .spotlight-card:focus-within {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px rgb(32 116 76 / 0.12), var(--shadow-md) !important;
+}
+
+.workspace-main tbody td,
+.trace-main tbody td {
+    transition: padding-left 0.2s ease, color 0.2s ease;
+}
+
+.workspace-main tbody tr:hover td:first-child,
+.trace-main tbody tr:hover td:first-child {
+    padding-left: 1.2rem !important;
 }
 
 @keyframes shimmer {
@@ -3556,6 +3615,21 @@ body.workspace-body .workspace-main [data-reveal-group] > .spotlight-card:nth-ch
     .workspace-main tbody tr,
     .trace-main tbody tr {
         animation-delay: 0ms !important;
+    }
+
+    .workspace-main .motion-control:hover,
+    .workspace-main .motion-control:active,
+    .trace-main .motion-control:hover,
+    .trace-main .motion-control:active,
+    .guest-form-card .motion-control:hover,
+    .guest-form-card .motion-control:active,
+    .workspace-main figure:hover img,
+    .trace-main figure:hover img,
+    .workspace-main tbody tr:hover td:first-child,
+    .trace-main tbody tr:hover td:first-child {
+        filter: none !important;
+        transform: none !important;
+        padding-left: 1rem !important;
     }
 
     .nav-progress,
