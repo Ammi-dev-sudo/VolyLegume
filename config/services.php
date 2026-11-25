@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'platform_admin' => [
+        'email' => env('ADMIN_EMAIL', 'admin@volylegume.mg'),
+        'name' => env('ADMIN_NAME', 'Administrateur VolyLegume'),
+        'password' => env('ADMIN_PASSWORD'),
+    ],
+
 ];
