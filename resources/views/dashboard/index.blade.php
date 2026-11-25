@@ -193,6 +193,41 @@
         </div>
     </section>
 
+    @if ($yieldPredictions->isNotEmpty())
+        <section class="dashboard-section" aria-labelledby="ml-title">
+            <div class="dashboard-section__head">
+                <div>
+                    <h2 id="ml-title" class="dashboard-section__title">Prévisions de rendement</h2>
+                    <p class="dashboard-section__hint">Estimation du modèle ML pour les campagnes actives (kg/m² et total).</p>
+                </div>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-reveal-group="58">
+                @foreach ($yieldPredictions as $prediction)
+                    @php
+                        $campaign = $prediction->subject;
+                        $predictedTotal = (float) ($prediction->context['predicted_total_kg'] ?? 0);
+                    @endphp
+                    <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+                        <p class="text-sm font-semibold text-slate-800">{{ $campaign?->name ?? 'Campagne' }}</p>
+                        <p class="mt-1 text-xs text-slate-500">
+                            {{ $campaign?->crop?->name ?? 'Culture' }}
+                            · {{ number_format((float) $prediction->value, 2, ',', ' ') }} kg/m²
+                        </p>
+                        <p class="mt-2 text-lg font-bold text-emerald-700">
+                            {{ number_format($predictedTotal, 1, ',', ' ') }} kg
+                        </p>
+                        @if ($prediction->score !== null)
+                            <p class="mt-1 text-xs text-slate-400">
+                                R² : {{ number_format((float) $prediction->score * 100, 0, ',', ' ') }} %
+                            </p>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     <section class="dashboard-section" aria-labelledby="pilotage-title">
         <div class="dashboard-section__head">
             <div>
@@ -218,6 +253,46 @@
         </div>
     </section>
 
+    @if ($activityRiskPredictions->isNotEmpty())
+        <section class="dashboard-section" aria-labelledby="activity-risk-title">
+            <div class="dashboard-section__head">
+                <div>
+                    <h2 id="activity-risk-title" class="dashboard-section__title">Activités à risque</h2>
+                    <p class="dashboard-section__hint">Probabilité de retard estimée par le modèle ML pour les activités planifiées.</p>
+                </div>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-reveal-group="65">
+                @foreach ($activityRiskPredictions as $prediction)
+                    @php
+                        $activity = $prediction->subject;
+                        $level = $prediction->context['risk_level'] ?? 'faible';
+                        $levelLabel = ['eleve' => 'Élevé', 'modere' => 'Modéré', 'faible' => 'Faible'][$level] ?? 'Faible';
+                        $levelClasses = [
+                            'eleve' => 'bg-rose-50 text-rose-700 ring-rose-200',
+                            'modere' => 'bg-amber-50 text-amber-700 ring-amber-200',
+                            'faible' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+                        ][$level] ?? 'bg-slate-50 text-slate-600 ring-slate-200';
+                    @endphp
+                    <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+                        <div class="flex items-start justify-between gap-2">
+                            <p class="text-sm font-semibold text-slate-800">{{ $activity?->title ?? 'Activité' }}</p>
+                            <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 {{ $levelClasses }}">{{ $levelLabel }}</span>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-500">
+                            {{ $activity?->campaign?->name ?? 'Campagne' }}
+                            · prévue le {{ $activity?->planned_date?->format('d/m/Y') ?? '—' }}
+                        </p>
+                        <p class="mt-2 text-lg font-bold text-slate-800">
+                            {{ number_format((float) $prediction->value * 100, 0, ',', ' ') }} %
+                        </p>
+                        <p class="mt-1 text-xs text-slate-400">probabilité de retard</p>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     @if ($canViewFinances)
         <section class="dashboard-section" aria-labelledby="finance-title">
             <div class="dashboard-section__head">
@@ -242,6 +317,40 @@
                 <x-stat-card label="Ventes" :value="number_format((float) $metrics['sales_amount'], 0, ',', ' ').' Ar'"
                              :count="$metrics['sales_amount']" :decimals="0" suffix=" Ar" tone="gold"
                              :hint="$metrics['sales_count'].' vente(s) · '.number_format((float) $metrics['sales_outstanding'], 0, ',', ' ').' Ar à encaisser'" />
+            </div>
+        </section>
+    @endif
+
+    @if ($canViewFinances && $customerSegments->isNotEmpty())
+        <section class="dashboard-section" aria-labelledby="segments-title">
+            <div class="dashboard-section__head">
+                <div>
+                    <h2 id="segments-title" class="dashboard-section__title">Segments clients</h2>
+                    <p class="dashboard-section__hint">Regroupement ML des clients par récence, fréquence et montant d’achat.</p>
+                </div>
+            </div>
+
+            @php
+                $segmentGroups = $customerSegments->groupBy('label');
+            @endphp
+
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-reveal-group="70">
+                @foreach ($segmentGroups as $segment => $predictions)
+                    @php
+                        $averageRecency = (int) round($predictions->avg(fn ($item) => (float) ($item->context['recency_days'] ?? 0)));
+                        $averageMonetary = $predictions->avg(fn ($item) => (float) ($item->context['monetary'] ?? 0));
+                        $names = $predictions->take(3)->map(fn ($item) => $item->subject?->name)->filter()->implode(' · ');
+                    @endphp
+                    <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+                        <p class="text-sm font-semibold text-slate-800">{{ $segment }}</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ $predictions->count() }} client(s)</p>
+                        <p class="mt-2 text-sm text-slate-600">Récence moyenne : {{ $averageRecency }} j</p>
+                        <p class="text-sm text-slate-600">CA moyen : {{ number_format((float) $averageMonetary, 0, ',', ' ') }} Ar</p>
+                        @if ($names !== '')
+                            <p class="mt-2 text-xs text-slate-400">{{ $names }}</p>
+                        @endif
+                    </div>
+                @endforeach
             </div>
         </section>
     @endif

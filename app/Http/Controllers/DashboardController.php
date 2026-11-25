@@ -2,10 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ActivityStatus;
 use App\Http\Controllers\Concerns\UsesFarmContext;
+use App\Models\Activity;
 use App\Models\Campaign;
+use App\Models\Customer;
 use App\Models\Expense;
+use App\Models\Prediction;
 use App\Services\DashboardService;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
@@ -38,9 +43,42 @@ class DashboardController extends Controller
 
         $canViewFinances = Gate::allows('viewAny', Expense::class);
 
+        $yieldPredictions = Prediction::query()
+            ->forFarm($farm->id)
+            ->forModel('yield')
+            ->where('subject_type', Campaign::class)
+            ->whereHasMorph('subject', [Campaign::class], fn ($query) => $query->active())
+            ->with(['subject' => fn (MorphTo $morph) => $morph->morphWith([Campaign::class => ['crop']])])
+            ->orderByDesc('value')
+            ->limit(6)
+            ->get();
+
+        $activityRiskPredictions = Prediction::query()
+            ->forFarm($farm->id)
+            ->forModel('activity_risk')
+            ->where('subject_type', Activity::class)
+            ->whereHasMorph('subject', [Activity::class], fn ($query) => $query->where('status', ActivityStatus::Planned->value))
+            ->with(['subject' => fn (MorphTo $morph) => $morph->morphWith([Activity::class => ['campaign']])])
+            ->orderByDesc('value')
+            ->limit(5)
+            ->get();
+
+        $customerSegments = $canViewFinances
+            ? Prediction::query()
+                ->forFarm($farm->id)
+                ->forModel('customer_segment')
+                ->where('subject_type', Customer::class)
+                ->with('subject')
+                ->orderByDesc('value')
+                ->get()
+            : collect();
+
         return view('dashboard.index', [
             'metrics' => $dashboard->forFarm($farm, $filters, $canViewFinances),
             'campaigns' => Campaign::query()->forFarm($farm->id)->orderByDesc('start_date')->get(),
+            'yieldPredictions' => $yieldPredictions,
+            'activityRiskPredictions' => $activityRiskPredictions,
+            'customerSegments' => $customerSegments,
             'filters' => $filters,
             'canViewFinances' => $canViewFinances,
         ]);

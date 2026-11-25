@@ -281,7 +281,7 @@ Le menu principal expose les neuf entrées les plus utilisées : tableau de bord
 | Policies Laravel | 19 Policies + trait commun | `app/Policies` |
 | Journalisation | `audit_logs`, `AuditLogger`, `Auditable` | `app/Support`, `app/Models/Concerns` |
 | Administration globale | Panneau `/admin` | `app/Http/Controllers/Admin` |
-| Tests | 209 tests, 846 assertions | `php artisan test` |
+| Tests | 234 tests, 976 assertions | `php artisan test` |
 | Base de données 8–15 tables (indicatif) | 26 tables métier et 9 tables techniques, périmètre détaillé assumé | `database/migrations` |
 | Factories et seeders | Factories par modèle + `DatabaseSeeder` | `database/factories`, `database/seeders` |
 | Module personnel | Calendrier cultural paramétrable et suivi des retards | `CropCalendarService`, `/agenda` |

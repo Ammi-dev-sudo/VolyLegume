@@ -32,6 +32,7 @@ RUN apt-get update \
         libxml2-dev \
         libzip-dev \
         postgresql-client \
+        python3 \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
