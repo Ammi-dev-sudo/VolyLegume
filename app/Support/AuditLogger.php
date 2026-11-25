@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Farm;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
@@ -18,6 +19,23 @@ use Throwable;
  */
 class AuditLogger
 {
+    /**
+     * Attributs jamais recopiés en clair dans le journal d'audit.
+     *
+     * @var list<string>
+     */
+    private const REDACTED_ATTRIBUTES = [
+        'password',
+        'remember_token',
+        'contact_name',
+        'phone',
+        'contact_phone',
+        'email',
+        'contact_email',
+        'address',
+        'notes',
+    ];
+
     public function __construct(private FarmContext $farmContext) {}
 
     /**
@@ -41,20 +59,33 @@ class AuditLogger
             $userId ??= $request?->user()?->id ?? Auth::id();
             $farmId ??= $this->resolveFarmId($subject);
 
-            return AuditLog::create([
-                'farm_id' => $farmId,
-                'user_id' => $userId,
-                'action' => Str::limit($action, 80, ''),
-                'description' => Str::limit($description, 500, '…'),
-                'auditable_type' => $subject?->getMorphClass(),
-                'auditable_id' => $subject?->getKey(),
-                'old_values' => $oldValues,
-                'new_values' => $newValues,
-                'context' => $context !== [] ? $context : null,
-                'ip_address' => $request?->ip(),
-                'user_agent' => $request?->userAgent(),
-                'created_at' => now(),
-            ]);
+            return DB::transaction(function () use ($action, $context, $description, $farmId, $newValues, $oldValues, $request, $subject, $userId): AuditLog {
+                $previousHash = AuditLog::query()
+                    ->orderByDesc('id')
+                    ->lockForUpdate()
+                    ->value('entry_hash');
+
+                $log = AuditLog::create([
+                    'farm_id' => $farmId,
+                    'user_id' => $userId,
+                    'action' => Str::limit($action, 80, ''),
+                    'description' => Str::limit($description, 500, '…'),
+                    'auditable_type' => $subject?->getMorphClass(),
+                    'auditable_id' => $subject?->getKey(),
+                    'old_values' => $oldValues,
+                    'new_values' => $newValues,
+                    'context' => $context !== [] ? $context : null,
+                    'ip_address' => $request?->ip(),
+                    'user_agent' => $request?->userAgent(),
+                    'created_at' => now(),
+                    'prev_hash' => $previousHash,
+                ]);
+
+                $log->entry_hash = AuditChain::hash($previousHash, $log);
+                $log->save();
+
+                return $log;
+            });
         } catch (Throwable $exception) {
             Log::warning('Impossible d’écrire une entrée d’audit.', [
                 'action' => $action,
@@ -97,7 +128,7 @@ class AuditLogger
      */
     private function valuesFor(string $event, Model $model): array
     {
-        $excluded = ['password', 'remember_token', 'created_at', 'updated_at'];
+        $excluded = array_merge(self::REDACTED_ATTRIBUTES, ['created_at', 'updated_at']);
 
         if ($event === 'created') {
             return [null, $this->except($model->getAttributes(), $excluded)];

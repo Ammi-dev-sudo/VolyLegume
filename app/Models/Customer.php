@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Casts\EncryptedString;
 use App\Enums\CustomerType;
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToFarm;
+use App\Support\BlindIndex;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -33,7 +35,27 @@ class Customer extends Model
         return [
             'type' => CustomerType::class,
             'is_active' => 'boolean',
+            'contact_name' => EncryptedString::class,
+            'phone' => EncryptedString::class,
+            'email' => EncryptedString::class,
+            'address' => EncryptedString::class,
+            'notes' => EncryptedString::class,
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Customer $customer): void {
+            $customer->phone_index = self::blindIndex($customer->phone);
+        });
+    }
+
+    /**
+     * Index aveugle permettant une recherche exacte sur un champ chiffré.
+     */
+    public static function blindIndex(?string $value): ?string
+    {
+        return BlindIndex::for($value);
     }
 
     public function farm(): BelongsTo

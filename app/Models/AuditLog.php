@@ -30,6 +30,8 @@ class AuditLog extends Model
         'ip_address',
         'user_agent',
         'created_at',
+        'prev_hash',
+        'entry_hash',
     ];
 
     protected function casts(): array

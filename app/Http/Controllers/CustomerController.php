@@ -21,11 +21,17 @@ class CustomerController extends Controller
             ->forFarm($this->farmId())
             ->withCount('sales')
             ->when($request->filled('search'), function ($query) use ($request): void {
-                $search = $request->string('search')->toString();
-                $query->where(fn ($query) => $query
-                    ->where('name', 'like', '%'.$search.'%')
-                    ->orWhere('code', 'like', '%'.$search.'%')
-                    ->orWhere('phone', 'like', '%'.$search.'%'));
+                $search = trim($request->string('search')->toString());
+                $phoneIndex = Customer::blindIndex($search);
+
+                $query->where(function ($query) use ($search, $phoneIndex): void {
+                    $query->where('name', 'like', '%'.$search.'%')
+                        ->orWhere('code', 'like', '%'.$search.'%');
+
+                    if ($phoneIndex !== null) {
+                        $query->orWhere('phone_index', $phoneIndex);
+                    }
+                });
             })
             ->when($request->filled('type'), fn ($query) => $query->where('type', $request->string('type')))
             ->orderBy('name')
